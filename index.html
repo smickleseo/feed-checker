@@ -53,6 +53,49 @@
         </div>
     </div>
 
+    <!-- Variant Exclusion Modal -->
+    <div id="variantModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Exclude Product Variants</h3>
+                <button class="modal-close" onclick="feedViewer.closeVariantModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="modalMessage">Choose how you want to exclude this product:</p>
+                <div id="modalOptions" class="modal-options">
+                    <!-- Options will be populated dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Format Modal -->
+    <div id="exportModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Choose Export Format</h3>
+                <button class="modal-close" onclick="feedViewer.closeExportModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Select the format for your exclusions export:</p>
+                <div class="modal-options">
+                    <button class="modal-option-btn" onclick="feedViewer.exportFormat('csv')">
+                        <strong>CSV (Excel Compatible)</strong>
+                        <span>Opens directly in Excel - Recommended</span>
+                    </button>
+                    <button class="modal-option-btn" onclick="feedViewer.exportFormat('excel')">
+                        <strong>Excel Report</strong>
+                        <span>Detailed report with summary information</span>
+                    </button>
+                    <button class="modal-option-btn" onclick="feedViewer.exportFormat('json')">
+                        <strong>JSON</strong>
+                        <span>Technical format for developers</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="script.js"></script>
 </body>
 </html> 

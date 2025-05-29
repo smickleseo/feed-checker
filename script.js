@@ -26,6 +26,17 @@ class FeedViewer {
         this.feedContainer = document.getElementById('feedContainer');
         this.totalItemsSpan = document.getElementById('totalItems');
         this.excludedItemsSpan = document.getElementById('excludedItems');
+        
+        // Modal elements
+        this.variantModal = document.getElementById('variantModal');
+        this.exportModal = document.getElementById('exportModal');
+        this.modalTitle = document.getElementById('modalTitle');
+        this.modalMessage = document.getElementById('modalMessage');
+        this.modalOptions = document.getElementById('modalOptions');
+        
+        // Store current item for modal operations
+        this.currentItem = null;
+        this.currentExportData = null;
     }
 
     bindEvents() {
@@ -96,8 +107,11 @@ class FeedViewer {
         this.showLoading(true);
         this.hideError();
 
-        // List of CORS proxy services to try
+        // Try our backend proxy first (if available), then fallback to CORS proxies
         const proxyServices = [
+            // Our backend proxy (works when deployed with server.js)
+            `/api/fetch-feed?url=${encodeURIComponent(url)}`,
+            // Fallback CORS proxies
             `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
             `https://cors-anywhere.herokuapp.com/${url}`,
             `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
@@ -162,10 +176,11 @@ class FeedViewer {
         }
         
         errorMessage += '\n\nTroubleshooting tips:\n';
+        errorMessage += '• Use the "Upload XML File" button instead\n';
+        errorMessage += '• Download the XML file from your feed URL and upload it\n';
         errorMessage += '• Make sure the URL is correct and publicly accessible\n';
-        errorMessage += '• Try a different feed URL to test\n';
-        errorMessage += '• Check if the feed requires authentication\n';
-        errorMessage += '• Some feeds may block automated access';
+        errorMessage += '• Some feeds require authentication or block automated access\n';
+        errorMessage += '• For production use, deploy with the included server.js backend';
         
         this.showError(errorMessage);
         this.showLoading(false);
@@ -396,24 +411,143 @@ class FeedViewer {
     }
 
     toggleExclusion(itemId) {
-        if (this.excludedItems.has(itemId)) {
-            this.excludedItems.delete(itemId);
-        } else {
-            this.excludedItems.add(itemId);
-        }
+        const item = this.feedData.find(i => i.id === itemId);
+        if (!item) return;
 
-        // Update the specific item's appearance
+        const isCurrentlyExcluded = this.excludedItems.has(itemId);
+        
+        if (!isCurrentlyExcluded) {
+            // When excluding an item, ask about variants
+            this.handleExclusionWithVariants(item);
+        } else {
+            // When including an item, just include this one
+            this.excludedItems.delete(itemId);
+            this.updateItemAppearance(itemId);
+            this.updateStats();
+        }
+    }
+
+    handleExclusionWithVariants(item) {
+        // Find potential variants
+        const groupVariants = item.itemGroupId ? 
+            this.feedData.filter(i => i.itemGroupId === item.itemGroupId && i.id !== item.id) : [];
+        
+        const titleVariants = this.findTitleVariants(item);
+        
+        if (groupVariants.length === 0 && titleVariants.length === 0) {
+            // No variants found, just exclude this item
+            this.excludedItems.add(item.id);
+            this.updateItemAppearance(item.id);
+            this.updateStats();
+            return;
+        }
+        
+        // Store current item for modal callbacks
+        this.currentItem = item;
+        
+        // Update modal content
+        this.modalTitle.textContent = 'Exclude Product Variants';
+        this.modalMessage.innerHTML = `Exclude "<strong>${item.title}</strong>"?<br><br>Choose how you want to exclude this product:`;
+        
+        // Build options
+        let optionsHTML = '';
+        
+        // Option 1: Single item
+        optionsHTML += `
+            <button class="modal-option-btn primary" onclick="feedViewer.excludeVariants('single')">
+                <strong>Exclude only this item</strong>
+                <span>Just exclude "${item.title}"</span>
+            </button>
+        `;
+        
+        // Option 2: Group variants
+        if (groupVariants.length > 0) {
+            optionsHTML += `
+                <button class="modal-option-btn" onclick="feedViewer.excludeVariants('group')">
+                    <strong>Exclude all ${groupVariants.length + 1} items with same Group ID</strong>
+                    <span>Group ID: "${item.itemGroupId}"</span>
+                </button>
+            `;
+        }
+        
+        // Option 3: Title variants
+        if (titleVariants.length > 0) {
+            const baseTitle = this.extractBaseTitle(item.title);
+            optionsHTML += `
+                <button class="modal-option-btn" onclick="feedViewer.excludeVariants('title')">
+                    <strong>Exclude all ${titleVariants.length + 1} items with similar title</strong>
+                    <span>Base title: "${baseTitle}"</span>
+                </button>
+            `;
+        }
+        
+        this.modalOptions.innerHTML = optionsHTML;
+        
+        // Show modal
+        this.variantModal.classList.remove('hidden');
+    }
+
+    findTitleVariants(item) {
+        // Extract base title by removing common variant indicators
+        const baseTitle = this.extractBaseTitle(item.title);
+        
+        return this.feedData.filter(i => {
+            if (i.id === item.id) return false;
+            const otherBaseTitle = this.extractBaseTitle(i.title);
+            return baseTitle === otherBaseTitle;
+        });
+    }
+
+    extractBaseTitle(title) {
+        // Remove common variant patterns like sizes, colors, etc.
+        return title
+            .replace(/\s*-\s*(Small|Medium|Large|XL|XXL|S|M|L)\s*$/i, '')
+            .replace(/\s*-\s*(Red|Blue|Green|Black|White|Yellow|Pink|Purple|Orange|Brown|Grey|Gray)\s*$/i, '')
+            .replace(/\s*-\s*\d+(\.\d+)?\s*(cm|mm|m|inch|in|ft)\s*$/i, '')
+            .replace(/\s*-\s*\d+\s*x\s*\d+\s*(cm|mm|m|inch|in|ft)?\s*$/i, '')
+            .replace(/\s*\(\s*(Small|Medium|Large|XL|XXL|S|M|L)\s*\)\s*$/i, '')
+            .replace(/\s*\(\s*(Red|Blue|Green|Black|White|Yellow|Pink|Purple|Orange|Brown|Grey|Gray)\s*\)\s*$/i, '')
+            .trim();
+    }
+
+    excludeVariantsByGroup(item) {
+        const variants = this.feedData.filter(i => i.itemGroupId === item.itemGroupId);
+        
+        variants.forEach(variant => {
+            this.excludedItems.add(variant.id);
+            this.updateItemAppearance(variant.id);
+        });
+        
+        console.log(`Excluded ${variants.length} items with Group ID: ${item.itemGroupId}`);
+    }
+
+    excludeVariantsByTitle(item) {
+        const baseTitle = this.extractBaseTitle(item.title);
+        const variants = this.feedData.filter(i => {
+            const otherBaseTitle = this.extractBaseTitle(i.title);
+            return baseTitle === otherBaseTitle;
+        });
+        
+        variants.forEach(variant => {
+            this.excludedItems.add(variant.id);
+            this.updateItemAppearance(variant.id);
+        });
+        
+        console.log(`Excluded ${variants.length} items with similar title: ${baseTitle}`);
+    }
+
+    updateItemAppearance(itemId) {
         const itemElement = document.querySelector(`[data-item-id="${itemId}"]`);
         if (itemElement) {
             const isExcluded = this.excludedItems.has(itemId);
             itemElement.classList.toggle('excluded', isExcluded);
             
             const excludeBtn = itemElement.querySelector('.exclude-btn');
-            excludeBtn.textContent = isExcluded ? 'Include' : 'Exclude';
-            excludeBtn.classList.toggle('excluded', isExcluded);
+            if (excludeBtn) {
+                excludeBtn.textContent = isExcluded ? 'Include' : 'Exclude';
+                excludeBtn.classList.toggle('excluded', isExcluded);
+            }
         }
-
-        this.updateStats();
     }
 
     toggleRawData(itemId) {
@@ -447,25 +581,13 @@ class FeedViewer {
         }
 
         const excludedList = Array.from(this.excludedItems);
-        const exportData = {
-            timestamp: new Date().toISOString(),
-            feedUrl: this.feedUrlInput.value,
-            excludedItemIds: excludedList,
-            excludedItems: this.feedData.filter(item => this.excludedItems.has(item.id))
-        };
+        const excludedItemsData = this.feedData.filter(item => this.excludedItems.has(item.id));
 
-        const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-            type: 'application/json'
-        });
-
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `feed-exclusions-${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        // Store data for modal callbacks
+        this.currentExportData = { excludedList, excludedItemsData };
+        
+        // Show export modal
+        this.exportModal.classList.remove('hidden');
     }
 
     showLoading(show) {
@@ -482,6 +604,159 @@ class FeedViewer {
 
     hideError() {
         this.errorDiv.classList.add('hidden');
+    }
+
+    // Modal callback methods
+    excludeVariants(type) {
+        if (!this.currentItem) return;
+        
+        switch (type) {
+            case 'single':
+                this.excludedItems.add(this.currentItem.id);
+                this.updateItemAppearance(this.currentItem.id);
+                break;
+                
+            case 'group':
+                this.excludeVariantsByGroup(this.currentItem);
+                break;
+                
+            case 'title':
+                this.excludeVariantsByTitle(this.currentItem);
+                break;
+        }
+        
+        this.updateStats();
+        this.closeVariantModal();
+    }
+
+    closeVariantModal() {
+        this.variantModal.classList.add('hidden');
+        this.currentItem = null;
+    }
+
+    closeExportModal() {
+        this.exportModal.classList.add('hidden');
+        this.currentExportData = null;
+    }
+
+    exportFormat(format) {
+        if (!this.currentExportData) return;
+        
+        const { excludedList, excludedItemsData } = this.currentExportData;
+        
+        switch (format) {
+            case 'csv':
+                this.exportAsCSV(excludedList, excludedItemsData);
+                break;
+            case 'excel':
+                this.exportAsExcel(excludedList, excludedItemsData);
+                break;
+            case 'json':
+                this.exportAsJSON(excludedList, excludedItemsData);
+                break;
+        }
+        
+        this.closeExportModal();
+    }
+
+    exportAsCSV(excludedList, excludedItemsData) {
+        // Create CSV header
+        const headers = ['ID', 'Title', 'Price', 'Availability', 'Condition', 'Product Type', 'Link', 'Image Link', 'Item Group ID'];
+        
+        // Create CSV rows
+        const rows = excludedItemsData.map(item => [
+            item.id || '',
+            `"${(item.title || '').replace(/"/g, '""')}"`, // Escape quotes
+            item.price || '',
+            item.availability || '',
+            item.condition || '',
+            `"${(item.productType || '').replace(/"/g, '""')}"`,
+            item.link || '',
+            item.imageLink || '',
+            item.itemGroupId || ''
+        ]);
+
+        // Combine header and rows
+        const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+
+        // Create and download file
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `feed-exclusions-${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    exportAsExcel(excludedList, excludedItemsData) {
+        // For Excel export, we'll create a more detailed format
+        const workbookData = [
+            // Summary sheet data
+            ['Shopping Feed Exclusions Report'],
+            ['Generated:', new Date().toLocaleString()],
+            ['Feed URL:', this.feedUrlInput.value],
+            ['Total Excluded Items:', excludedList.length],
+            [''],
+            ['Excluded Item IDs:'],
+            ...excludedList.map(id => [id]),
+            [''],
+            ['Detailed Item Information:'],
+            ['ID', 'Title', 'Price', 'Availability', 'Condition', 'Product Type', 'Link', 'Image Link', 'Item Group ID', 'Brand', 'GTIN', 'MPN'],
+            ...excludedItemsData.map(item => [
+                item.id || '',
+                item.title || '',
+                item.price || '',
+                item.availability || '',
+                item.condition || '',
+                item.productType || '',
+                item.link || '',
+                item.imageLink || '',
+                item.itemGroupId || '',
+                item.brand || '',
+                item.gtin || '',
+                item.mpn || ''
+            ])
+        ];
+
+        // Convert to CSV format (Excel can open CSV files)
+        const csvContent = workbookData.map(row => 
+            row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+        ).join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `feed-exclusions-${new Date().toISOString().split('T')[0]}.xlsx.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    exportAsJSON(excludedList, excludedItemsData) {
+        const exportData = {
+            timestamp: new Date().toISOString(),
+            feedUrl: this.feedUrlInput.value,
+            excludedItemIds: excludedList,
+            excludedItems: excludedItemsData
+        };
+
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+            type: 'application/json'
+        });
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `feed-exclusions-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     }
 }
 
