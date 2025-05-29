@@ -73,6 +73,23 @@ class FeedViewer {
                 this.loadFeed();
             }
         });
+        
+        // Close modals when clicking outside
+        if (this.variantModal) {
+            this.variantModal.addEventListener('click', (e) => {
+                if (e.target === this.variantModal) {
+                    this.closeVariantModal();
+                }
+            });
+        }
+        
+        if (this.exportModal) {
+            this.exportModal.addEventListener('click', (e) => {
+                if (e.target === this.exportModal) {
+                    this.closeExportModal();
+                }
+            });
+        }
     }
 
     loadSampleData() {
@@ -428,14 +445,19 @@ class FeedViewer {
     }
 
     handleExclusionWithVariants(item) {
+        console.log('handleExclusionWithVariants called for item:', item.title);
+        
         // Find potential variants
         const groupVariants = item.itemGroupId ? 
             this.feedData.filter(i => i.itemGroupId === item.itemGroupId && i.id !== item.id) : [];
         
         const titleVariants = this.findTitleVariants(item);
         
+        console.log('Found variants:', { groupVariants: groupVariants.length, titleVariants: titleVariants.length });
+        
         if (groupVariants.length === 0 && titleVariants.length === 0) {
             // No variants found, just exclude this item
+            console.log('No variants found, excluding single item');
             this.excludedItems.add(item.id);
             this.updateItemAppearance(item.id);
             this.updateStats();
@@ -444,6 +466,17 @@ class FeedViewer {
         
         // Store current item for modal callbacks
         this.currentItem = item;
+        
+        console.log('Showing variant modal...');
+        
+        if (!this.variantModal) {
+            console.error('Variant modal not found!');
+            // Fallback to simple exclusion
+            this.excludedItems.add(item.id);
+            this.updateItemAppearance(item.id);
+            this.updateStats();
+            return;
+        }
         
         // Update modal content
         this.modalTitle.textContent = 'Exclude Product Variants';
@@ -485,6 +518,9 @@ class FeedViewer {
         
         // Show modal
         this.variantModal.classList.remove('hidden');
+        this.variantModal.style.display = 'flex'; // Make sure it shows
+        
+        console.log('Variant modal should now be visible');
     }
 
     findTitleVariants(item) {
@@ -580,11 +616,21 @@ class FeedViewer {
             return;
         }
 
+        console.log('Export button clicked, checking modal...');
+        
+        if (!this.exportModal) {
+            console.error('Export modal not found!');
+            alert('Modal system error. Please refresh the page.');
+            return;
+        }
+
         const excludedList = Array.from(this.excludedItems);
         const excludedItemsData = this.feedData.filter(item => this.excludedItems.has(item.id));
 
         // Store data for modal callbacks
         this.currentExportData = { excludedList, excludedItemsData };
+        
+        console.log('Showing export modal...');
         
         // Show export modal
         this.exportModal.classList.remove('hidden');
@@ -640,9 +686,16 @@ class FeedViewer {
     }
 
     exportFormat(format) {
-        if (!this.currentExportData) return;
+        console.log('Export format clicked:', format);
+        
+        if (!this.currentExportData) {
+            console.error('No export data available!');
+            return;
+        }
         
         const { excludedList, excludedItemsData } = this.currentExportData;
+        
+        console.log('Processing export with format:', format);
         
         switch (format) {
             case 'csv':
@@ -654,6 +707,9 @@ class FeedViewer {
             case 'json':
                 this.exportAsJSON(excludedList, excludedItemsData);
                 break;
+            default:
+                console.error('Unknown export format:', format);
+                return;
         }
         
         this.closeExportModal();
