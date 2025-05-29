@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopping Feed Viewer</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>Shopping Feed Viewer</h1>
+            <div class="url-input-section">
+                <input type="url" id="feedUrl" placeholder="Enter feed URL..." class="url-input">
+                <select id="sampleFeeds" class="sample-feeds">
+                    <option value="">Or try a sample feed...</option>
+                    <option value="https://www.w3schools.com/xml/simple.xml">Sample XML (W3Schools)</option>
+                    <option value="https://feeds.feedburner.com/oreilly/radar">O'Reilly Radar</option>
+                    <option value="https://rss.cnn.com/rss/edition.rss">CNN RSS</option>
+                </select>
+                <input type="file" id="fileUpload" accept=".xml,.rss" class="file-upload" style="display: none;">
+                <button id="uploadBtn" class="upload-btn">Upload XML File</button>
+                <button id="loadFeed" class="load-btn">Load Feed</button>
+                <button id="refreshFeed" class="refresh-btn">Refresh</button>
+            </div>
+        </header>
+
+        <div class="controls">
+            <div class="stats">
+                <span id="totalItems">0 items</span>
+                <span id="excludedItems">0 excluded</span>
+            </div>
+            <div class="filters">
+                <input type="text" id="searchFilter" placeholder="Search products..." class="search-input">
+                <select id="categoryFilter" class="category-filter">
+                    <option value="">All Categories</option>
+                </select>
+                <button id="exportExclusions" class="export-btn">Export Exclusions</button>
+            </div>
+        </div>
+
+        <div id="loading" class="loading hidden">
+            <div class="spinner"></div>
+            <p>Loading feed...</p>
+        </div>
+
+        <div id="error" class="error hidden">
+            <p id="errorMessage"></p>
+        </div>
+
+        <div id="feedContainer" class="feed-container">
+            <!-- Feed items will be populated here -->
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html> 
