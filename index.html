@@ -22,6 +22,7 @@
                     <option value="https://rss.cnn.com/rss/edition.rss">CNN RSS</option>
                 </select>
                 <input type="file" id="fileUpload" accept=".xml,.rss" class="file-upload" style="display: none;">
+                <input type="file" id="exclusionUpload" accept=".csv,.json,.txt" class="file-upload" style="display: none;">
                 <button id="uploadBtn" class="upload-btn">Upload XML File</button>
                 <button id="loadFeed" class="load-btn">Load Feed</button>
                 <button id="refreshFeed" class="refresh-btn">Refresh</button>
@@ -38,6 +39,12 @@
                 <select id="categoryFilter" class="category-filter">
                     <option value="">All Categories</option>
                 </select>
+                <select id="excludedFilter" class="excluded-filter">
+                    <option value="">All Items</option>
+                    <option value="excluded">Excluded Only</option>
+                    <option value="not-excluded">Not Excluded Only</option>
+                </select>
+                <button id="importExclusions" class="import-btn">Import Exclusions</button>
                 <button id="exportExclusions" class="export-btn">Export Exclusions</button>
             </div>
         </div>
@@ -90,10 +97,33 @@
                         <strong>Excel Report</strong>
                         <span>Detailed report with summary information</span>
                     </button>
+                    <button class="modal-option-btn primary" onclick="feedViewer.exportFormat('smart-rules')">
+                        <strong>🧠 Smart Rules & Mapping</strong>
+                        <span>Intelligent exclusion rules for feed generators - NEW!</span>
+                    </button>
                     <button class="modal-option-btn" onclick="feedViewer.exportFormat('json')">
                         <strong>JSON</strong>
                         <span>Technical format for developers</span>
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Results Modal -->
+    <div id="importModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Import Results</h3>
+                <button class="modal-close" onclick="feedViewer.closeImportModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="importResults" class="import-results">
+                    <!-- Results will be populated dynamically -->
+                </div>
+                <div class="modal-actions">
+                    <button id="applyImport" class="modal-option-btn primary">Apply Exclusions</button>
+                    <button onclick="feedViewer.closeImportModal()" class="modal-option-btn">Cancel</button>
                 </div>
             </div>
         </div>

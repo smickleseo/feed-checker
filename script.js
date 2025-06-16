@@ -19,7 +19,10 @@ class FeedViewer {
         this.refreshBtn = document.getElementById('refreshFeed');
         this.searchInput = document.getElementById('searchFilter');
         this.categoryFilter = document.getElementById('categoryFilter');
+        this.excludedFilter = document.getElementById('excludedFilter');
         this.exportBtn = document.getElementById('exportExclusions');
+        this.importBtn = document.getElementById('importExclusions');
+        this.exclusionUpload = document.getElementById('exclusionUpload');
         this.loadingDiv = document.getElementById('loading');
         this.errorDiv = document.getElementById('error');
         this.errorMessage = document.getElementById('errorMessage');
@@ -30,13 +33,17 @@ class FeedViewer {
         // Modal elements
         this.variantModal = document.getElementById('variantModal');
         this.exportModal = document.getElementById('exportModal');
+        this.importModal = document.getElementById('importModal');
         this.modalTitle = document.getElementById('modalTitle');
         this.modalMessage = document.getElementById('modalMessage');
         this.modalOptions = document.getElementById('modalOptions');
+        this.importResults = document.getElementById('importResults');
+        this.applyImportBtn = document.getElementById('applyImport');
         
         // Store current item for modal operations
         this.currentItem = null;
         this.currentExportData = null;
+        this.currentImportData = null;
     }
 
     bindEvents() {
@@ -44,7 +51,9 @@ class FeedViewer {
         this.refreshBtn.addEventListener('click', () => this.refreshFeed());
         this.searchInput.addEventListener('input', () => this.filterItems());
         this.categoryFilter.addEventListener('change', () => this.filterItems());
+        this.excludedFilter.addEventListener('change', () => this.filterItems());
         this.exportBtn.addEventListener('click', () => this.exportExclusions());
+        this.importBtn.addEventListener('click', () => this.importExclusions());
         
         // Handle sample feeds dropdown
         this.sampleFeedsSelect.addEventListener('change', (e) => {
@@ -66,6 +75,19 @@ class FeedViewer {
                 this.loadFileContent(file);
             }
         });
+
+        // Handle exclusion file upload
+        this.exclusionUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                this.loadExclusionFile(file);
+            }
+        });
+
+        // Handle import modal apply button
+        if (this.applyImportBtn) {
+            this.applyImportBtn.addEventListener('click', () => this.applyImportedExclusions());
+        }
         
         // Allow Enter key to load feed
         this.feedUrlInput.addEventListener('keypress', (e) => {
@@ -87,6 +109,14 @@ class FeedViewer {
             this.exportModal.addEventListener('click', (e) => {
                 if (e.target === this.exportModal) {
                     this.closeExportModal();
+                }
+            });
+        }
+
+        if (this.importModal) {
+            this.importModal.addEventListener('click', (e) => {
+                if (e.target === this.importModal) {
+                    this.closeImportModal();
                 }
             });
         }
@@ -325,6 +355,7 @@ class FeedViewer {
     filterItems() {
         const searchTerm = this.searchInput.value.toLowerCase();
         const selectedCategory = this.categoryFilter.value;
+        const excludedFilter = this.excludedFilter.value;
 
         this.filteredData = this.feedData.filter(item => {
             const matchesSearch = !searchTerm || 
@@ -335,7 +366,12 @@ class FeedViewer {
             const matchesCategory = !selectedCategory || 
                 item.productType === selectedCategory;
 
-            return matchesSearch && matchesCategory;
+            const isExcluded = this.excludedItems.has(item.id);
+            const matchesExcluded = !excludedFilter || 
+                (excludedFilter === 'excluded' && isExcluded) ||
+                (excludedFilter === 'not-excluded' && !isExcluded);
+
+            return matchesSearch && matchesCategory && matchesExcluded;
         });
 
         this.renderItems();
@@ -610,6 +646,579 @@ class FeedViewer {
         this.excludedItemsSpan.textContent = `${this.excludedItems.size} excluded`;
     }
 
+    // Import functionality
+    importExclusions() {
+        if (this.feedData.length === 0) {
+            alert('Please load a feed first before importing exclusions.');
+            return;
+        }
+        
+        this.exclusionUpload.click();
+    }
+
+    async loadExclusionFile(file) {
+        try {
+            const content = await this.readFileContent(file);
+            const importData = await this.parseExclusionFile(content, file.name);
+            this.validateAndShowImportResults(importData);
+        } catch (error) {
+            console.error('Failed to load exclusion file:', error);
+            alert(`Failed to load exclusion file: ${error.message}`);
+        }
+    }
+
+    readFileContent(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = () => reject(new Error('Failed to read file'));
+            reader.readAsText(file);
+        });
+    }
+
+    async parseExclusionFile(content, filename) {
+        const extension = filename.toLowerCase().split('.').pop();
+        
+        switch (extension) {
+            case 'json':
+                return this.parseJSONExclusions(content);
+            case 'csv':
+            case 'txt':
+                return this.parseCSVExclusions(content);
+            default:
+                throw new Error(`Unsupported file format: ${extension}. Please use CSV, TXT, or JSON files.`);
+        }
+    }
+
+    parseJSONExclusions(content) {
+        try {
+            const data = JSON.parse(content);
+            
+            // Handle our export format
+            if (data.excludedItemIds && Array.isArray(data.excludedItemIds)) {
+                return {
+                    format: 'json',
+                    excludedIds: data.excludedItemIds,
+                    metadata: {
+                        timestamp: data.timestamp,
+                        feedUrl: data.feedUrl,
+                        totalExcluded: data.excludedItemIds.length
+                    }
+                };
+            }
+            
+            // Handle simple array format
+            if (Array.isArray(data)) {
+                return {
+                    format: 'json',
+                    excludedIds: data.map(item => String(item)),
+                    metadata: {
+                        totalExcluded: data.length
+                    }
+                };
+            }
+            
+            throw new Error('JSON file does not contain valid exclusion data');
+        } catch (error) {
+            throw new Error(`Invalid JSON format: ${error.message}`);
+        }
+    }
+
+    parseCSVExclusions(content) {
+        const lines = content.split('\n').map(line => line.trim()).filter(line => line);
+        const excludedIds = [];
+        
+        // Skip header if it looks like one
+        let startIndex = 0;
+        if (lines.length > 0 && (lines[0].toLowerCase().includes('id') || lines[0].includes('ID'))) {
+            startIndex = 1;
+        }
+        
+        for (let i = startIndex; i < lines.length; i++) {
+            const line = lines[i];
+            
+            // Handle CSV format - take first column as ID
+            const columns = this.parseCSVLine(line);
+            if (columns.length > 0 && columns[0]) {
+                excludedIds.push(String(columns[0]));
+            }
+        }
+        
+        return {
+            format: 'csv',
+            excludedIds: excludedIds,
+            metadata: {
+                totalExcluded: excludedIds.length
+            }
+        };
+    }
+
+    parseCSVLine(line) {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+        
+        for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            
+            if (char === '"') {
+                inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+                result.push(current.trim());
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+        
+        result.push(current.trim());
+        return result.map(item => item.replace(/^"(.*)"$/, '$1')); // Remove surrounding quotes
+    }
+
+    validateAndShowImportResults(importData) {
+        const { excludedIds, metadata } = importData;
+        
+        // Validate against current feed
+        const foundIds = [];
+        const notFoundIds = [];
+        const currentlyExcluded = [];
+        
+        excludedIds.forEach(id => {
+            const item = this.feedData.find(item => item.id === id);
+            if (item) {
+                foundIds.push({ id, title: item.title });
+                if (this.excludedItems.has(id)) {
+                    currentlyExcluded.push({ id, title: item.title });
+                }
+            } else {
+                notFoundIds.push(id);
+            }
+        });
+        
+        // Store validation results
+        this.currentImportData = {
+            importData,
+            validation: {
+                total: excludedIds.length,
+                found: foundIds,
+                notFound: notFoundIds,
+                currentlyExcluded: currentlyExcluded,
+                newExclusions: foundIds.filter(item => !this.excludedItems.has(item.id))
+            }
+        };
+        
+        this.showImportResults();
+    }
+
+    showImportResults() {
+        const { importData, validation } = this.currentImportData;
+        const { found, notFound, currentlyExcluded, newExclusions } = validation;
+        
+        let html = `
+            <div class="import-summary">
+                <h4>Import Summary</h4>
+                <div class="import-status">
+                    <div class="status-icon ${found.length > 0 ? 'success' : 'error'}"></div>
+                    <span><strong>${found.length}</strong> items found in current feed</span>
+                </div>`;
+        
+        if (notFound.length > 0) {
+            html += `
+                <div class="import-status">
+                    <div class="status-icon warning"></div>
+                    <span><strong>${notFound.length}</strong> items not found in current feed</span>
+                </div>`;
+        }
+        
+        if (currentlyExcluded.length > 0) {
+            html += `
+                <div class="import-status">
+                    <div class="status-icon warning"></div>
+                    <span><strong>${currentlyExcluded.length}</strong> items already excluded</span>
+                </div>`;
+        }
+        
+        html += `
+                <p><strong>${newExclusions.length}</strong> new items will be excluded</p>
+            </div>`;
+        
+        if (importData.metadata.timestamp) {
+            html += `
+                <div class="import-details">
+                    <p><strong>Export Date:</strong> ${new Date(importData.metadata.timestamp).toLocaleString()}</p>
+                </div>`;
+        }
+        
+        // Show found items
+        if (found.length > 0) {
+            html += `
+                <div class="import-section">
+                    <h5>Items Found in Feed (${found.length})</h5>
+                    <div class="import-list">`;
+            
+            found.forEach(item => {
+                const isExcluded = this.excludedItems.has(item.id);
+                html += `<div class="import-item found">${item.id} - ${item.title} ${isExcluded ? '(already excluded)' : ''}</div>`;
+            });
+            
+            html += `</div></div>`;
+        }
+        
+        // Show not found items
+        if (notFound.length > 0) {
+            html += `
+                <div class="import-section">
+                    <h5>Items Not Found in Current Feed (${notFound.length})</h5>
+                    <div class="import-list">`;
+            
+            notFound.forEach(id => {
+                html += `<div class="import-item not-found">${id} - Not found in current feed</div>`;
+            });
+            
+            html += `</div></div>`;
+        }
+        
+        this.importResults.innerHTML = html;
+        
+        // Enable/disable apply button
+        if (this.applyImportBtn) {
+            this.applyImportBtn.disabled = newExclusions.length === 0;
+            this.applyImportBtn.textContent = newExclusions.length > 0 
+                ? `Apply ${newExclusions.length} New Exclusions` 
+                : 'No New Exclusions to Apply';
+        }
+        
+        // Show modal
+        this.importModal.classList.remove('hidden');
+    }
+
+    applyImportedExclusions() {
+        if (!this.currentImportData) return;
+        
+        const { validation } = this.currentImportData;
+        const { newExclusions } = validation;
+        
+        // Apply new exclusions
+        newExclusions.forEach(item => {
+            this.excludedItems.add(item.id);
+            this.updateItemAppearance(item.id);
+        });
+        
+        // Update UI
+        this.updateStats();
+        this.renderItems(); // Re-render to show exclusion status
+        
+        // Close modal and show success message
+        this.closeImportModal();
+        
+        if (newExclusions.length > 0) {
+            alert(`Successfully applied ${newExclusions.length} new exclusions!`);
+        }
+    }
+
+    closeImportModal() {
+        this.importModal.classList.add('hidden');
+        this.currentImportData = null;
+        
+        // Reset file input
+        if (this.exclusionUpload) {
+            this.exclusionUpload.value = '';
+        }
+    }
+
+    // Intelligent Pattern Analysis for Feed Generator Mapping
+    analyzeExclusionPatterns(excludedItemsData) {
+        const patterns = {
+            brands: this.analyzeBrandPatterns(excludedItemsData),
+            categories: this.analyzeCategoryPatterns(excludedItemsData),
+            titles: this.analyzeTitlePatterns(excludedItemsData),
+            priceRanges: this.analyzePricePatterns(excludedItemsData),
+            itemGroups: this.analyzeItemGroupPatterns(excludedItemsData),
+            availability: this.analyzeAvailabilityPatterns(excludedItemsData),
+            condition: this.analyzeConditionPatterns(excludedItemsData)
+        };
+
+        return this.generateExclusionRules(patterns, excludedItemsData);
+    }
+
+    analyzeBrandPatterns(items) {
+        const brandCounts = {};
+        const totalByBrand = {};
+        
+        // Count excluded items by brand
+        items.forEach(item => {
+            const brand = item.brand || 'Unknown Brand';
+            brandCounts[brand] = (brandCounts[brand] || 0) + 1;
+        });
+
+        // Count total items by brand in the entire feed
+        this.feedData.forEach(item => {
+            const brand = item.brand || 'Unknown Brand';
+            totalByBrand[brand] = (totalByBrand[brand] || 0) + 1;
+        });
+
+        return Object.keys(brandCounts).map(brand => ({
+            brand,
+            excludedCount: brandCounts[brand],
+            totalCount: totalByBrand[brand] || 0,
+            percentage: totalByBrand[brand] ? Math.round((brandCounts[brand] / totalByBrand[brand]) * 100) : 0
+        })).filter(item => item.excludedCount > 1 || item.percentage > 50);
+    }
+
+    analyzeCategoryPatterns(items) {
+        const categoryCounts = {};
+        const totalByCategory = {};
+        
+        items.forEach(item => {
+            const category = item.productType || 'Unknown Category';
+            categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+        });
+
+        this.feedData.forEach(item => {
+            const category = item.productType || 'Unknown Category';
+            totalByCategory[category] = (totalByCategory[category] || 0) + 1;
+        });
+
+        return Object.keys(categoryCounts).map(category => ({
+            category,
+            excludedCount: categoryCounts[category],
+            totalCount: totalByCategory[category] || 0,
+            percentage: totalByCategory[category] ? Math.round((categoryCounts[category] / totalByCategory[category]) * 100) : 0
+        })).filter(item => item.excludedCount > 1 || item.percentage > 30);
+    }
+
+    analyzeTitlePatterns(items) {
+        const patterns = {};
+        const commonWords = new Set(['the', 'and', 'or', 'for', 'with', 'in', 'on', 'at', 'to', 'a', 'an']);
+        
+        items.forEach(item => {
+            const title = (item.title || '').toLowerCase();
+            const words = title.split(/\s+/).filter(word => 
+                word.length > 3 && !commonWords.has(word) && !/^\d+$/.test(word)
+            );
+            
+            words.forEach(word => {
+                if (!patterns[word]) {
+                    patterns[word] = { count: 0, items: [] };
+                }
+                patterns[word].count++;
+                patterns[word].items.push(item.id);
+            });
+        });
+
+        return Object.keys(patterns)
+            .filter(word => patterns[word].count >= 2)
+            .map(word => ({
+                keyword: word,
+                count: patterns[word].count,
+                items: patterns[word].items
+            }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 10);
+    }
+
+    analyzePricePatterns(items) {
+        const prices = items
+            .map(item => parseFloat((item.price || '0').replace(/[^\d.]/g, '')))
+            .filter(price => price > 0)
+            .sort((a, b) => a - b);
+
+        if (prices.length < 2) return [];
+
+        const ranges = [
+            { min: 0, max: 50, label: 'Under £50' },
+            { min: 50, max: 100, label: '£50 - £100' },
+            { min: 100, max: 200, label: '£100 - £200' },
+            { min: 200, max: 500, label: '£200 - £500' },
+            { min: 500, max: Infinity, label: 'Over £500' }
+        ];
+
+        return ranges.map(range => {
+            const count = prices.filter(price => price >= range.min && price < range.max).length;
+            return {
+                range: range.label,
+                min: range.min,
+                max: range.max === Infinity ? null : range.max,
+                count
+            };
+        }).filter(item => item.count > 0);
+    }
+
+    analyzeItemGroupPatterns(items) {
+        const groupCounts = {};
+        const totalByGroup = {};
+        
+        items.forEach(item => {
+            if (item.itemGroupId) {
+                groupCounts[item.itemGroupId] = (groupCounts[item.itemGroupId] || 0) + 1;
+            }
+        });
+
+        this.feedData.forEach(item => {
+            if (item.itemGroupId) {
+                totalByGroup[item.itemGroupId] = (totalByGroup[item.itemGroupId] || 0) + 1;
+            }
+        });
+
+        return Object.keys(groupCounts).map(groupId => ({
+            groupId,
+            excludedCount: groupCounts[groupId],
+            totalCount: totalByGroup[groupId] || 0,
+            percentage: totalByGroup[groupId] ? Math.round((groupCounts[groupId] / totalByGroup[groupId]) * 100) : 0
+        })).filter(item => item.percentage > 50);
+    }
+
+    analyzeAvailabilityPatterns(items) {
+        const availabilityCounts = {};
+        items.forEach(item => {
+            const availability = item.availability || 'unknown';
+            availabilityCounts[availability] = (availabilityCounts[availability] || 0) + 1;
+        });
+        
+        return Object.keys(availabilityCounts).map(availability => ({
+            availability,
+            count: availabilityCounts[availability]
+        })).filter(item => item.count > 1);
+    }
+
+    analyzeConditionPatterns(items) {
+        const conditionCounts = {};
+        items.forEach(item => {
+            const condition = item.condition || 'unknown';
+            conditionCounts[condition] = (conditionCounts[condition] || 0) + 1;
+        });
+        
+        return Object.keys(conditionCounts).map(condition => ({
+            condition,
+            count: conditionCounts[condition]
+        })).filter(item => item.count > 1);
+    }
+
+    generateExclusionRules(patterns, excludedItemsData) {
+        const rules = [];
+
+        // Brand-based rules
+        patterns.brands.forEach(brand => {
+            if (brand.percentage >= 80) {
+                rules.push({
+                    type: 'brand_exclude_all',
+                    priority: 'high',
+                    field: 'brand',
+                    operator: 'equals',
+                    value: brand.brand,
+                    description: `Exclude ALL products from brand "${brand.brand}" (${brand.excludedCount}/${brand.totalCount} excluded)`,
+                    googleMerchantRule: `brand = "${brand.brand}"`,
+                    confidence: brand.percentage
+                });
+            } else if (brand.excludedCount >= 3) {
+                rules.push({
+                    type: 'brand_partial',
+                    priority: 'medium',
+                    field: 'brand',
+                    operator: 'equals',
+                    value: brand.brand,
+                    description: `Consider excluding brand "${brand.brand}" (${brand.excludedCount}/${brand.totalCount} currently excluded)`,
+                    googleMerchantRule: `brand = "${brand.brand}"`,
+                    confidence: brand.percentage
+                });
+            }
+        });
+
+        // Category-based rules
+        patterns.categories.forEach(category => {
+            if (category.percentage >= 60) {
+                rules.push({
+                    type: 'category_exclude',
+                    priority: 'high',
+                    field: 'product_type',
+                    operator: 'contains',
+                    value: category.category,
+                    description: `Exclude category "${category.category}" (${category.excludedCount}/${category.totalCount} excluded)`,
+                    googleMerchantRule: `product_type = "${category.category}"`,
+                    confidence: category.percentage
+                });
+            }
+        });
+
+        // Title keyword rules
+        patterns.titles.forEach(keyword => {
+            if (keyword.count >= 3) {
+                rules.push({
+                    type: 'title_keyword',
+                    priority: 'medium',
+                    field: 'title',
+                    operator: 'contains',
+                    value: keyword.keyword,
+                    description: `Exclude products with "${keyword.keyword}" in title (${keyword.count} items)`,
+                    googleMerchantRule: `title ~ "${keyword.keyword}"`,
+                    confidence: Math.min(95, (keyword.count / excludedItemsData.length) * 100)
+                });
+            }
+        });
+
+        // Price range rules
+        patterns.priceRanges.forEach(range => {
+            if (range.count >= 3) {
+                let rule = `price >= ${range.min}`;
+                if (range.max) {
+                    rule += ` AND price < ${range.max}`;
+                }
+                
+                rules.push({
+                    type: 'price_range',
+                    priority: 'low',
+                    field: 'price',
+                    operator: 'range',
+                    value: `${range.min}-${range.max || 'unlimited'}`,
+                    description: `Exclude products in price range ${range.range} (${range.count} items)`,
+                    googleMerchantRule: rule,
+                    confidence: (range.count / excludedItemsData.length) * 100
+                });
+            }
+        });
+
+        // Item group rules
+        patterns.itemGroups.forEach(group => {
+            if (group.percentage >= 70) {
+                rules.push({
+                    type: 'item_group',
+                    priority: 'high',
+                    field: 'item_group_id',
+                    operator: 'equals',
+                    value: group.groupId,
+                    description: `Exclude entire product group "${group.groupId}" (${group.excludedCount}/${group.totalCount} excluded)`,
+                    googleMerchantRule: `item_group_id = "${group.groupId}"`,
+                    confidence: group.percentage
+                });
+            }
+        });
+
+        // Availability rules
+        patterns.availability.forEach(avail => {
+            if (avail.count >= Math.max(3, excludedItemsData.length * 0.3)) {
+                rules.push({
+                    type: 'availability',
+                    priority: 'medium',
+                    field: 'availability',
+                    operator: 'equals',
+                    value: avail.availability,
+                    description: `Exclude all "${avail.availability}" products (${avail.count} items)`,
+                    googleMerchantRule: `availability = "${avail.availability}"`,
+                    confidence: (avail.count / excludedItemsData.length) * 100
+                });
+            }
+        });
+
+        // Sort by priority and confidence
+        const priorityOrder = { high: 3, medium: 2, low: 1 };
+        return rules.sort((a, b) => {
+            if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
+                return priorityOrder[b.priority] - priorityOrder[a.priority];
+            }
+            return b.confidence - a.confidence;
+        });
+    }
+
     exportExclusions() {
         if (this.excludedItems.size === 0) {
             alert('No items excluded yet.');
@@ -703,6 +1312,9 @@ class FeedViewer {
                 break;
             case 'excel':
                 this.exportAsExcel(excludedList, excludedItemsData);
+                break;
+            case 'smart-rules':
+                this.exportAsSmartRules(excludedList, excludedItemsData);
                 break;
             case 'json':
                 this.exportAsJSON(excludedList, excludedItemsData);
@@ -813,6 +1425,243 @@ class FeedViewer {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+    }
+
+    exportAsSmartRules(excludedList, excludedItemsData) {
+        // Analyze patterns in excluded items
+        const rules = this.analyzeExclusionPatterns(excludedItemsData);
+        
+        // Generate comprehensive smart rules report
+        const reportData = [
+            ['🧠 SMART EXCLUSION RULES & FEED MAPPING REPORT'],
+            ['Generated:', new Date().toLocaleString()],
+            ['Feed URL:', this.feedUrlInput.value],
+            ['Total Excluded Items:', excludedList.length],
+            ['Total Feed Items:', this.feedData.length],
+            ['Exclusion Rate:', `${Math.round((excludedList.length / this.feedData.length) * 100)}%`],
+            [''],
+            
+            // Executive Summary
+            ['=== EXECUTIVE SUMMARY ==='],
+            ['This report analyzes your exclusions and suggests smart rules for your feed generator.'],
+            ['High Priority rules can save significant manual work by excluding entire groups at once.'],
+            [''],
+            
+            // High Priority Rules
+            ['=== HIGH PRIORITY RULES (Recommended) ==='],
+            ['These rules will automatically exclude groups of items based on detected patterns:'],
+            ['']
+        ];
+
+        // Add high priority rules
+        const highPriorityRules = rules.filter(rule => rule.priority === 'high');
+        if (highPriorityRules.length > 0) {
+            reportData.push(['Rule Type', 'Feed Generator Rule', 'Description', 'Confidence %', 'Google Merchant Rule']);
+            highPriorityRules.forEach(rule => {
+                reportData.push([
+                    rule.type.replace(/_/g, ' ').toUpperCase(),
+                    `${rule.field} ${rule.operator} "${rule.value}"`,
+                    rule.description,
+                    `${Math.round(rule.confidence)}%`,
+                    rule.googleMerchantRule
+                ]);
+            });
+        } else {
+            reportData.push(['No high-priority rules detected. Your exclusions appear to be individual items.']);
+        }
+        
+        reportData.push(['']);
+
+        // Medium Priority Rules
+        const mediumPriorityRules = rules.filter(rule => rule.priority === 'medium');
+        if (mediumPriorityRules.length > 0) {
+            reportData.push(['=== MEDIUM PRIORITY RULES (Consider) ===']);
+            reportData.push(['These rules may help but review carefully before implementing:']);
+            reportData.push(['']);
+            reportData.push(['Rule Type', 'Feed Generator Rule', 'Description', 'Confidence %', 'Google Merchant Rule']);
+            mediumPriorityRules.forEach(rule => {
+                reportData.push([
+                    rule.type.replace(/_/g, ' ').toUpperCase(),
+                    `${rule.field} ${rule.operator} "${rule.value}"`,
+                    rule.description,
+                    `${Math.round(rule.confidence)}%`,
+                    rule.googleMerchantRule
+                ]);
+            });
+            reportData.push(['']);
+        }
+
+        // Implementation Guide
+        reportData.push(['=== IMPLEMENTATION GUIDE ===']);
+        reportData.push(['Google Merchant Center:', 'Account Settings > Shopping ads > Feeds > Supplemental feeds']);
+        reportData.push(['Facebook Catalog:', 'Catalog Manager > Data Sources > Rules']);
+        reportData.push(['Custom Feed Generator:', 'Use the "Feed Generator Rule" column for filtering logic']);
+        reportData.push(['']);
+
+        // Feed Platform Specific Rules
+        reportData.push(['=== GOOGLE MERCHANT CENTER EXCLUSION RULES ===']);
+        reportData.push(['Copy these rules into your Merchant Center supplemental feed:']);
+        reportData.push(['']);
+        highPriorityRules.concat(mediumPriorityRules).forEach(rule => {
+            if (rule.googleMerchantRule) {
+                reportData.push([`${rule.googleMerchantRule} [Action: Exclude]`]);
+            }
+        });
+        reportData.push(['']);
+
+        // Facebook/Meta Catalog Rules
+        reportData.push(['=== FACEBOOK/META CATALOG RULES ===']);
+        reportData.push(['Use these rules in Facebook Business Manager:']);
+        reportData.push(['']);
+        highPriorityRules.concat(mediumPriorityRules).forEach(rule => {
+            const fbRule = this.convertToFacebookRule(rule);
+            if (fbRule) {
+                reportData.push([fbRule]);
+            }
+        });
+        reportData.push(['']);
+
+        // Detailed Exclusion Analysis
+        reportData.push(['=== DETAILED EXCLUSION ANALYSIS ===']);
+        reportData.push(['']);
+
+        // Brand Analysis
+        const brandPatterns = this.analyzeBrandPatterns(excludedItemsData);
+        if (brandPatterns.length > 0) {
+            reportData.push(['BRAND ANALYSIS:']);
+            reportData.push(['Brand', 'Excluded Items', 'Total Items', 'Exclusion %', 'Recommendation']);
+            brandPatterns.forEach(brand => {
+                let recommendation = 'Individual exclusions';
+                if (brand.percentage >= 80) recommendation = '🔴 EXCLUDE ENTIRE BRAND';
+                else if (brand.percentage >= 50) recommendation = '🟡 Consider brand exclusion';
+                
+                reportData.push([
+                    brand.brand,
+                    brand.excludedCount,
+                    brand.totalCount,
+                    `${brand.percentage}%`,
+                    recommendation
+                ]);
+            });
+            reportData.push(['']);
+        }
+
+        // Category Analysis
+        const categoryPatterns = this.analyzeCategoryPatterns(excludedItemsData);
+        if (categoryPatterns.length > 0) {
+            reportData.push(['CATEGORY ANALYSIS:']);
+            reportData.push(['Category', 'Excluded Items', 'Total Items', 'Exclusion %', 'Recommendation']);
+            categoryPatterns.forEach(category => {
+                let recommendation = 'Individual exclusions';
+                if (category.percentage >= 60) recommendation = '🔴 EXCLUDE ENTIRE CATEGORY';
+                else if (category.percentage >= 30) recommendation = '🟡 Consider category exclusion';
+                
+                reportData.push([
+                    category.category,
+                    category.excludedCount,
+                    category.totalCount,
+                    `${category.percentage}%`,
+                    recommendation
+                ]);
+            });
+            reportData.push(['']);
+        }
+
+        // Title Keyword Analysis
+        const titlePatterns = this.analyzeTitlePatterns(excludedItemsData);
+        if (titlePatterns.length > 0) {
+            reportData.push(['TITLE KEYWORD ANALYSIS:']);
+            reportData.push(['Keyword', 'Occurrences', 'Potential Rule']);
+            titlePatterns.slice(0, 5).forEach(keyword => {
+                reportData.push([
+                    keyword.keyword,
+                    keyword.count,
+                    `title contains "${keyword.keyword}"`
+                ]);
+            });
+            reportData.push(['']);
+        }
+
+        // Raw excluded item IDs for reference
+        reportData.push(['=== EXCLUDED ITEM IDS (For Reference) ===']);
+        reportData.push(['Individual item IDs that were excluded:']);
+        reportData.push(['']);
+        const chunked = this.chunkArray(excludedList, 10);
+        chunked.forEach(chunk => {
+            reportData.push(chunk);
+        });
+
+        // Convert to CSV
+        const csvContent = reportData.map(row => 
+            row.map(cell => {
+                const cellStr = String(cell);
+                // Escape quotes and wrap in quotes if contains comma or quotes
+                if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
+                    return `"${cellStr.replace(/"/g, '""')}"`;
+                }
+                return cellStr;
+            }).join(',')
+        ).join('\n');
+
+        // Download the file
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `smart-exclusion-rules-${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        // Show success message with quick tips
+        alert(`🧠 Smart Rules Report Generated!
+
+Key Benefits:
+• ${highPriorityRules.length} high-priority automation rules detected
+• Potential to reduce manual exclusions by ${this.calculatePotentialSavings(rules, excludedItemsData)}%
+• Ready-to-use rules for Google Merchant Center & Facebook
+
+Next Steps:
+1. Open the downloaded CSV file
+2. Review the HIGH PRIORITY rules section
+3. Copy the Google Merchant Center rules to your feed setup
+4. Test with a small batch before full implementation`);
+    }
+
+    convertToFacebookRule(rule) {
+        switch (rule.type) {
+            case 'brand_exclude_all':
+            case 'brand_partial':
+                return `brand equals "${rule.value}" → Exclude`;
+            case 'category_exclude':
+                return `product_type contains "${rule.value}" → Exclude`;
+            case 'title_keyword':
+                return `product_name contains "${rule.value}" → Exclude`;
+            case 'availability':
+                return `availability equals "${rule.value}" → Exclude`;
+            case 'price_range':
+                return `price in range ${rule.value} → Exclude`;
+            default:
+                return null;
+        }
+    }
+
+    calculatePotentialSavings(rules, excludedItemsData) {
+        const highPriorityRules = rules.filter(rule => rule.priority === 'high');
+        const totalAutomatable = highPriorityRules.reduce((sum, rule) => {
+            return sum + (rule.confidence / 100) * excludedItemsData.length;
+        }, 0);
+        
+        return Math.min(95, Math.round((totalAutomatable / excludedItemsData.length) * 100));
+    }
+
+    chunkArray(array, chunkSize) {
+        const chunks = [];
+        for (let i = 0; i < array.length; i += chunkSize) {
+            chunks.push(array.slice(i, i + chunkSize));
+        }
+        return chunks;
     }
 }
 
