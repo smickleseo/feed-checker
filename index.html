@@ -11,16 +11,10 @@
         <header class="header">
             <div class="header-top">
                 <h1>Shopping Feed Viewer</h1>
-                <div class="version-info">v2.1.0</div>
+                <div class="version-info">v2.2.0</div>
             </div>
             <div class="url-input-section">
                 <input type="url" id="feedUrl" placeholder="Enter feed URL..." class="url-input">
-                <select id="sampleFeeds" class="sample-feeds">
-                    <option value="">Or try a sample feed...</option>
-                    <option value="https://www.w3schools.com/xml/simple.xml">Sample XML (W3Schools)</option>
-                    <option value="https://feeds.feedburner.com/oreilly/radar">O'Reilly Radar</option>
-                    <option value="https://rss.cnn.com/rss/edition.rss">CNN RSS</option>
-                </select>
                 <input type="file" id="fileUpload" accept=".xml,.rss" class="file-upload" style="display: none;">
                 <input type="file" id="exclusionUpload" accept=".csv,.json,.txt" class="file-upload" style="display: none;">
                 <button id="uploadBtn" class="upload-btn">Upload XML File</button>
@@ -33,6 +27,11 @@
             <div class="stats">
                 <span id="totalItems">0 items</span>
                 <span id="excludedItems">0 excluded</span>
+                <span id="visibleItems">0 visible</span>
+            </div>
+            <div class="bulk-actions">
+                <button id="excludeAllVisible" class="bulk-action-btn">Exclude All Visible</button>
+                <button id="includeAllVisible" class="bulk-action-btn">Include All Visible</button>
             </div>
             <div class="filters">
                 <input type="text" id="searchFilter" placeholder="Search products..." class="search-input">
@@ -44,8 +43,38 @@
                     <option value="excluded">Excluded Only</option>
                     <option value="not-excluded">Not Excluded Only</option>
                 </select>
+                <select id="statusFilter" class="status-filter">
+                    <option value="">All Status</option>
+                    <option value="in_stock">In Stock</option>
+                    <option value="out_of_stock">Out of Stock</option>
+                    <option value="backorder">Backorder</option>
+                    <option value="preorder">Preorder</option>
+                    <option value="limited_availability">Limited Availability</option>
+                </select>
+                <div class="price-filter-container">
+                    <input type="number" id="minPrice" placeholder="Min price" class="price-input">
+                    <span class="price-separator">-</span>
+                    <input type="number" id="maxPrice" placeholder="Max price" class="price-input">
+                </div>
+                <select id="priceFilter" class="price-filter">
+                    <option value="">All Prices</option>
+                    <option value="with-price">With Price (>£0)</option>
+                    <option value="no-price">No Price (£0)</option>
+                </select>
+                <select id="sortBy" class="sort-filter">
+                    <option value="">Default Order</option>
+                    <option value="title-asc">Title A-Z</option>
+                    <option value="title-desc">Title Z-A</option>
+                    <option value="price-asc">Price Low-High</option>
+                    <option value="price-desc">Price High-Low</option>
+                    <option value="id-asc">ID Ascending</option>
+                    <option value="id-desc">ID Descending</option>
+                    <option value="availability">Availability</option>
+                </select>
+                <button id="compareBtn" class="compare-btn">Compare (<span id="compareCount">0</span>)</button>
+                <button id="exportView" class="export-view-btn" title="Export currently filtered/visible items to CSV">Export View</button>
+                <button id="exportExclusions" class="export-btn" title="Export only excluded items">Export Exclusions</button>
                 <button id="importExclusions" class="import-btn">Import Exclusions</button>
-                <button id="exportExclusions" class="export-btn">Export Exclusions</button>
             </div>
         </div>
 
@@ -124,6 +153,25 @@
                 <div class="modal-actions">
                     <button id="applyImport" class="modal-option-btn primary">Apply Exclusions</button>
                     <button onclick="feedViewer.closeImportModal()" class="modal-option-btn">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Comparison Modal -->
+    <div id="comparisonModal" class="modal hidden">
+        <div class="modal-content modal-wide">
+            <div class="modal-header">
+                <h3>Product Comparison</h3>
+                <button class="modal-close" onclick="feedViewer.closeComparisonModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="comparisonTable" class="comparison-table">
+                    <!-- Comparison table will be populated dynamically -->
+                </div>
+                <div class="modal-actions">
+                    <button onclick="feedViewer.clearComparison()" class="modal-option-btn">Clear Selection</button>
+                    <button onclick="feedViewer.closeComparisonModal()" class="modal-option-btn primary">Close</button>
                 </div>
             </div>
         </div>

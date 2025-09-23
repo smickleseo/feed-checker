@@ -74,7 +74,7 @@ body {
     border-color: #667eea;
 }
 
-.load-btn, .refresh-btn, .export-btn, .import-btn, .upload-btn {
+.load-btn, .refresh-btn, .export-btn, .import-btn, .upload-btn, .export-view-btn, .compare-btn {
     padding: 12px 24px;
     border: none;
     border-radius: 8px;
@@ -164,9 +164,10 @@ body {
     display: flex;
     gap: 12px;
     flex-wrap: wrap;
+    align-items: center;
 }
 
-.search-input, .category-filter {
+.search-input, .category-filter, .status-filter, .excluded-filter, .price-filter, .sort-filter {
     padding: 10px 14px;
     border: 2px solid #e1e8ed;
     border-radius: 8px;
@@ -177,8 +178,104 @@ body {
     min-width: 200px;
 }
 
-.category-filter {
+.category-filter, .status-filter, .excluded-filter, .price-filter, .sort-filter {
     min-width: 150px;
+}
+
+.price-filter-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.price-input {
+    padding: 10px 14px;
+    border: 2px solid #e1e8ed;
+    border-radius: 8px;
+    font-size: 14px;
+    width: 100px;
+}
+
+.price-separator {
+    color: #718096;
+    font-weight: 500;
+}
+
+.compare-btn {
+    background: #9f7aea;
+    color: white;
+}
+
+.compare-btn:hover {
+    background: #805ad5;
+    transform: translateY(-2px);
+}
+
+.compare-btn:disabled {
+    background: #cbd5e0;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.export-view-btn {
+    background: #ed8936;
+    color: white;
+}
+
+.export-view-btn:hover {
+    background: #dd7724;
+    transform: translateY(-2px);
+}
+
+.bulk-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.bulk-action-btn {
+    padding: 8px 16px;
+    background: #4a5568;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.bulk-action-btn:hover {
+    background: #2d3748;
+    transform: translateY(-2px);
+}
+
+.availability-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-top: 8px;
+}
+
+.availability-badge.in-stock {
+    background: #c6f6d5;
+    color: #22543d;
+}
+
+.availability-badge.out-of-stock {
+    background: #fed7d7;
+    color: #742a2a;
+}
+
+.availability-badge.backorder {
+    background: #feebc8;
+    color: #7c2d12;
+}
+
+.availability-badge.preorder {
+    background: #e9d8fd;
+    color: #44337a;
 }
 
 .sample-feeds {
@@ -230,8 +327,8 @@ body {
 
 .feed-container {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 20px;
 }
 
 .feed-item {
@@ -294,25 +391,24 @@ body {
 }
 
 .item-details {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
-    margin-bottom: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin: 12px 0;
     font-size: 13px;
+    color: #718096;
+    padding-top: 8px;
+    border-top: 1px solid #e2e8f0;
 }
 
 .item-detail {
-    display: flex;
-    justify-content: space-between;
+    display: inline-flex;
+    align-items: center;
 }
 
-.item-detail-label {
-    color: #718096;
-    font-weight: 500;
-}
-
-.item-detail-value {
-    color: #4a5568;
+.item-detail strong {
+    color: #2d3748;
+    margin-left: 4px;
     font-weight: 600;
 }
 
@@ -596,8 +692,8 @@ body {
     }
     
     .feed-container {
-        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-        gap: 12px;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 16px;
     }
     
     .modal-content {
@@ -640,6 +736,54 @@ body {
     .modal-option-btn {
         padding: 14px 16px;
     }
+}
+
+/* Comparison Styles */
+.modal-wide {
+    max-width: 90%;
+    width: 1200px;
+}
+
+.comparison-table {
+    overflow-x: auto;
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.comparison-table table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.comparison-table th,
+.comparison-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.comparison-table th {
+    background: #f7fafc;
+    font-weight: 600;
+    color: #2d3748;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.comparison-table tr:hover {
+    background: #f9fafb;
+}
+
+.comparison-table .product-image {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.compare-checkbox {
+    margin-left: 10px;
 }
 
 /* Import Results Styles */

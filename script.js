@@ -4,15 +4,15 @@ class FeedViewer {
         this.excludedItems = new Set();
         this.filteredData = [];
         this.categories = new Set();
-        
+        this.compareItems = new Set();
+
         this.initializeElements();
         this.bindEvents();
-        this.loadSampleData();
+        // Don't load sample data automatically
     }
 
     initializeElements() {
         this.feedUrlInput = document.getElementById('feedUrl');
-        this.sampleFeedsSelect = document.getElementById('sampleFeeds');
         this.fileUpload = document.getElementById('fileUpload');
         this.uploadBtn = document.getElementById('uploadBtn');
         this.loadBtn = document.getElementById('loadFeed');
@@ -20,6 +20,17 @@ class FeedViewer {
         this.searchInput = document.getElementById('searchFilter');
         this.categoryFilter = document.getElementById('categoryFilter');
         this.excludedFilter = document.getElementById('excludedFilter');
+        this.statusFilter = document.getElementById('statusFilter');
+        this.minPriceInput = document.getElementById('minPrice');
+        this.maxPriceInput = document.getElementById('maxPrice');
+        this.priceFilter = document.getElementById('priceFilter');
+        this.sortBySelect = document.getElementById('sortBy');
+        this.compareBtn = document.getElementById('compareBtn');
+        this.exportViewBtn = document.getElementById('exportView');
+        this.excludeAllVisibleBtn = document.getElementById('excludeAllVisible');
+        this.includeAllVisibleBtn = document.getElementById('includeAllVisible');
+        this.visibleItemsSpan = document.getElementById('visibleItems');
+        this.compareCount = document.getElementById('compareCount');
         this.exportBtn = document.getElementById('exportExclusions');
         this.importBtn = document.getElementById('importExclusions');
         this.exclusionUpload = document.getElementById('exclusionUpload');
@@ -29,17 +40,19 @@ class FeedViewer {
         this.feedContainer = document.getElementById('feedContainer');
         this.totalItemsSpan = document.getElementById('totalItems');
         this.excludedItemsSpan = document.getElementById('excludedItems');
-        
+
         // Modal elements
         this.variantModal = document.getElementById('variantModal');
         this.exportModal = document.getElementById('exportModal');
         this.importModal = document.getElementById('importModal');
+        this.comparisonModal = document.getElementById('comparisonModal');
+        this.comparisonTable = document.getElementById('comparisonTable');
         this.modalTitle = document.getElementById('modalTitle');
         this.modalMessage = document.getElementById('modalMessage');
         this.modalOptions = document.getElementById('modalOptions');
         this.importResults = document.getElementById('importResults');
         this.applyImportBtn = document.getElementById('applyImport');
-        
+
         // Store current item for modal operations
         this.currentItem = null;
         this.currentExportData = null;
@@ -52,17 +65,17 @@ class FeedViewer {
         this.searchInput.addEventListener('input', () => this.filterItems());
         this.categoryFilter.addEventListener('change', () => this.filterItems());
         this.excludedFilter.addEventListener('change', () => this.filterItems());
+        this.statusFilter.addEventListener('change', () => this.filterItems());
+        this.minPriceInput.addEventListener('input', () => this.filterItems());
+        this.maxPriceInput.addEventListener('input', () => this.filterItems());
+        this.priceFilter.addEventListener('change', () => this.filterItems());
+        this.sortBySelect.addEventListener('change', () => this.filterItems());
+        this.compareBtn.addEventListener('click', () => this.showComparison());
+        this.exportViewBtn.addEventListener('click', () => this.exportCurrentView());
+        this.excludeAllVisibleBtn.addEventListener('click', () => this.excludeAllVisible());
+        this.includeAllVisibleBtn.addEventListener('click', () => this.includeAllVisible());
         this.exportBtn.addEventListener('click', () => this.exportExclusions());
         this.importBtn.addEventListener('click', () => this.importExclusions());
-        
-        // Handle sample feeds dropdown
-        this.sampleFeedsSelect.addEventListener('change', (e) => {
-            if (e.target.value) {
-                this.feedUrlInput.value = e.target.value;
-                this.loadFeed();
-                e.target.value = ''; // Reset dropdown
-            }
-        });
         
         // Handle file upload
         this.uploadBtn.addEventListener('click', () => {
@@ -122,8 +135,8 @@ class FeedViewer {
         }
     }
 
-    loadSampleData() {
-        // Load the sample item you provided
+    // Removed loadSampleData - we don't load samples anymore
+    loadSampleDataOld() {
         const sampleXml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">
 <channel>
@@ -161,7 +174,6 @@ class FeedViewer {
             // Fallback CORS proxies
             `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
             `https://cors-anywhere.herokuapp.com/${url}`,
-            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
             // Direct fetch (will work if the server supports CORS)
             url
         ];
@@ -236,8 +248,6 @@ class FeedViewer {
     refreshFeed() {
         if (this.feedUrlInput.value.trim()) {
             this.loadFeed();
-        } else {
-            this.loadSampleData();
         }
     }
 
@@ -356,26 +366,93 @@ class FeedViewer {
         const searchTerm = this.searchInput.value.toLowerCase();
         const selectedCategory = this.categoryFilter.value;
         const excludedFilter = this.excludedFilter.value;
+        const statusFilter = this.statusFilter.value;
+        const minPrice = parseFloat(this.minPriceInput.value) || 0;
+        const maxPrice = parseFloat(this.maxPriceInput.value) || Infinity;
+        const priceFilter = this.priceFilter.value;
 
         this.filteredData = this.feedData.filter(item => {
-            const matchesSearch = !searchTerm || 
+            const matchesSearch = !searchTerm ||
                 item.title.toLowerCase().includes(searchTerm) ||
                 item.productType.toLowerCase().includes(searchTerm) ||
                 item.id.toLowerCase().includes(searchTerm);
 
-            const matchesCategory = !selectedCategory || 
+            const matchesCategory = !selectedCategory ||
                 item.productType === selectedCategory;
 
             const isExcluded = this.excludedItems.has(item.id);
-            const matchesExcluded = !excludedFilter || 
+            const matchesExcluded = !excludedFilter ||
                 (excludedFilter === 'excluded' && isExcluded) ||
                 (excludedFilter === 'not-excluded' && !isExcluded);
 
-            return matchesSearch && matchesCategory && matchesExcluded;
+            // Status filter
+            const matchesStatus = !statusFilter ||
+                item.availability.toLowerCase() === statusFilter.toLowerCase();
+
+            // Price filter
+            const itemPrice = this.parsePrice(item.price);
+            const matchesPrice = itemPrice >= minPrice && itemPrice <= maxPrice;
+
+            // Price type filter (with price, no price)
+            const matchesPriceType = !priceFilter ||
+                (priceFilter === 'with-price' && itemPrice > 0) ||
+                (priceFilter === 'no-price' && itemPrice === 0);
+
+            return matchesSearch && matchesCategory && matchesExcluded && matchesStatus && matchesPrice && matchesPriceType;
         });
+
+        // Apply sorting
+        this.sortItems();
 
         this.renderItems();
         this.updateStats();
+    }
+
+    parsePrice(priceString) {
+        if (!priceString) return 0;
+        // Remove currency symbols and extract numeric value
+        const match = priceString.match(/[\d,]+\.?\d*/);
+        if (match) {
+            return parseFloat(match[0].replace(/,/g, ''));
+        }
+        return 0;
+    }
+
+    sortItems() {
+        const sortBy = this.sortBySelect.value;
+
+        if (!sortBy) return; // Default order
+
+        this.filteredData.sort((a, b) => {
+            switch (sortBy) {
+                case 'title-asc':
+                    return a.title.localeCompare(b.title);
+                case 'title-desc':
+                    return b.title.localeCompare(a.title);
+                case 'price-asc':
+                    return this.parsePrice(a.price) - this.parsePrice(b.price);
+                case 'price-desc':
+                    return this.parsePrice(b.price) - this.parsePrice(a.price);
+                case 'id-asc':
+                    return a.id.localeCompare(b.id);
+                case 'id-desc':
+                    return b.id.localeCompare(a.id);
+                case 'availability':
+                    // Sort by availability: in_stock -> backorder -> out_of_stock -> others
+                    const availabilityOrder = {
+                        'in_stock': 1,
+                        'backorder': 2,
+                        'preorder': 3,
+                        'limited_availability': 4,
+                        'out_of_stock': 5
+                    };
+                    const orderA = availabilityOrder[a.availability] || 6;
+                    const orderB = availabilityOrder[b.availability] || 6;
+                    return orderA - orderB;
+                default:
+                    return 0;
+            }
+        });
     }
 
     renderItems() {
@@ -413,28 +490,17 @@ class FeedViewer {
             <div class="item-content">
                 <h3 class="item-title">${item.title}</h3>
                 <div class="item-price">${item.price}</div>
-                
+
                 ${item.productType ? `<div class="item-category">${item.productType}</div>` : ''}
+
+                <div class="availability-badge ${item.availability.replace(/[_\s]/g, '-')}">
+                    ${item.availability.replace(/_/g, ' ')}
+                </div>
                 
                 <div class="item-details">
-                    <div class="item-detail">
-                        <span class="item-detail-label">ID:</span>
-                        <span class="item-detail-value">${item.id}</span>
-                    </div>
-                    <div class="item-detail">
-                        <span class="item-detail-label">Availability:</span>
-                        <span class="item-detail-value">${item.availability}</span>
-                    </div>
-                    <div class="item-detail">
-                        <span class="item-detail-label">Condition:</span>
-                        <span class="item-detail-value">${item.condition}</span>
-                    </div>
-                    ${item.itemGroupId ? `
-                    <div class="item-detail">
-                        <span class="item-detail-label">Group ID:</span>
-                        <span class="item-detail-value">${item.itemGroupId}</span>
-                    </div>
-                    ` : ''}
+                    <span class="item-detail">ID: <strong>${item.id}</strong></span>
+                    <span class="item-detail">Condition: <strong>${item.condition}</strong></span>
+                    ${item.itemGroupId ? `<span class="item-detail">Group: <strong>${item.itemGroupId}</strong></span>` : ''}
                 </div>
                 
                 <div class="raw-data-section hidden" id="rawData-${item.id}">
@@ -445,11 +511,17 @@ class FeedViewer {
                 </div>
                 
                 <div class="item-actions">
-                    <button class="exclude-btn ${isExcluded ? 'excluded' : ''}" 
+                    <label class="compare-checkbox">
+                        <input type="checkbox"
+                               onchange="feedViewer.toggleCompare('${item.id}')"
+                               ${this.compareItems.has(item.id) ? 'checked' : ''}>
+                        Compare
+                    </label>
+                    <button class="exclude-btn ${isExcluded ? 'excluded' : ''}"
                             onclick="feedViewer.toggleExclusion('${item.id}')">
                         ${isExcluded ? 'Include' : 'Exclude'}
                     </button>
-                    <button class="raw-data-btn" 
+                    <button class="raw-data-btn"
                             onclick="feedViewer.toggleRawData('${item.id}')">
                         View Raw Data
                     </button>
@@ -642,8 +714,13 @@ class FeedViewer {
     }
 
     updateStats() {
-        this.totalItemsSpan.textContent = `${this.filteredData.length} items`;
-        this.excludedItemsSpan.textContent = `${this.excludedItems.size} excluded`;
+        const total = this.feedData.length;
+        const excluded = this.excludedItems.size;
+        const visible = this.filteredData.length;
+
+        this.totalItemsSpan.textContent = `${total} items`;
+        this.excludedItemsSpan.textContent = `${excluded} excluded`;
+        this.visibleItemsSpan.textContent = `${visible} visible`;
     }
 
     // Import functionality
@@ -1662,6 +1739,162 @@ Next Steps:
             chunks.push(array.slice(i, i + chunkSize));
         }
         return chunks;
+    }
+
+    // Comparison functionality
+    toggleCompare(itemId) {
+        if (this.compareItems.has(itemId)) {
+            this.compareItems.delete(itemId);
+        } else {
+            this.compareItems.add(itemId);
+        }
+        this.updateCompareCount();
+    }
+
+    updateCompareCount() {
+        this.compareCount.textContent = this.compareItems.size;
+        this.compareBtn.disabled = this.compareItems.size === 0;
+    }
+
+    showComparison() {
+        if (this.compareItems.size === 0) {
+            this.showError('Please select items to compare');
+            return;
+        }
+
+        const compareData = this.feedData.filter(item => this.compareItems.has(item.id));
+
+        // Build comparison table
+        let tableHTML = `
+            <table>
+                <thead>
+                    <tr>
+                        <th>Image</th>
+                        <th>Title</th>
+                        <th>ID</th>
+                        <th>Price</th>
+                        <th>Availability</th>
+                        <th>Condition</th>
+                        <th>Category</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        compareData.forEach(item => {
+            tableHTML += `
+                <tr>
+                    <td><img src="${item.imageLink || 'https://via.placeholder.com/80x80?text=No+Image'}"
+                             alt="${item.title}" class="product-image"
+                             onerror="this.src='https://via.placeholder.com/80x80?text=No+Image'"></td>
+                    <td>${item.title}</td>
+                    <td>${item.id}</td>
+                    <td>${item.price}</td>
+                    <td>${item.availability}</td>
+                    <td>${item.condition}</td>
+                    <td>${item.productType || 'N/A'}</td>
+                    <td>
+                        <button onclick="feedViewer.removeFromComparison('${item.id}')" class="modal-option-btn">Remove</button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tableHTML += `
+                </tbody>
+            </table>
+        `;
+
+        this.comparisonTable.innerHTML = tableHTML;
+        this.comparisonModal.classList.remove('hidden');
+    }
+
+    removeFromComparison(itemId) {
+        this.compareItems.delete(itemId);
+        this.updateCompareCount();
+        this.showComparison();
+
+        // Uncheck the checkbox in the main list
+        const checkbox = document.querySelector(`input[onchange="feedViewer.toggleCompare('${itemId}')"]`);
+        if (checkbox) {
+            checkbox.checked = false;
+        }
+    }
+
+    clearComparison() {
+        this.compareItems.clear();
+        this.updateCompareCount();
+        this.closeComparisonModal();
+
+        // Uncheck all checkboxes
+        document.querySelectorAll('input[type="checkbox"][onchange*="toggleCompare"]').forEach(checkbox => {
+            checkbox.checked = false;
+        });
+    }
+
+    closeComparisonModal() {
+        this.comparisonModal.classList.add('hidden');
+    }
+
+    // Export current view functionality
+    exportCurrentView() {
+        if (this.filteredData.length === 0) {
+            this.showError('No items to export in current view');
+            return;
+        }
+
+        // Create CSV content for current view
+        let csv = 'ID,Title,Price,Availability,Condition,Category,Excluded\n';
+
+        this.filteredData.forEach(item => {
+            const isExcluded = this.excludedItems.has(item.id);
+            csv += `"${item.id}","${item.title}","${item.price}","${item.availability}","${item.condition}","${item.productType || ''}","${isExcluded ? 'Yes' : 'No'}"\n`;
+        });
+
+        // Download file
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `feed-view-${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+    }
+
+    // Bulk actions
+    excludeAllVisible() {
+        if (this.filteredData.length === 0) {
+            this.showError('No visible items to exclude');
+            return;
+        }
+
+        const count = this.filteredData.length;
+        if (confirm(`Are you sure you want to exclude all ${count} visible items?`)) {
+            this.filteredData.forEach(item => {
+                this.excludedItems.add(item.id);
+            });
+            this.renderItems();
+            this.updateStats();
+        }
+    }
+
+    includeAllVisible() {
+        const excludedVisible = this.filteredData.filter(item => this.excludedItems.has(item.id));
+
+        if (excludedVisible.length === 0) {
+            this.showError('No excluded items in current view');
+            return;
+        }
+
+        const count = excludedVisible.length;
+        if (confirm(`Are you sure you want to include all ${count} excluded items in the current view?`)) {
+            excludedVisible.forEach(item => {
+                this.excludedItems.delete(item.id);
+            });
+            this.renderItems();
+            this.updateStats();
+        }
     }
 }
 
