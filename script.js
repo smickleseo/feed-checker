@@ -386,8 +386,11 @@ class FeedViewer {
                 (excludedFilter === 'not-excluded' && !isExcluded);
 
             // Status filter
+            const itemAvailability = item.availability.toLowerCase().trim().replace(/\s+/g, '_');
+            const filterAvailability = statusFilter.toLowerCase().trim();
             const matchesStatus = !statusFilter ||
-                item.availability.toLowerCase() === statusFilter.toLowerCase();
+                itemAvailability === filterAvailability ||
+                item.availability.toLowerCase().trim() === filterAvailability;
 
             // Price filter
             const itemPrice = this.parsePrice(item.price);
