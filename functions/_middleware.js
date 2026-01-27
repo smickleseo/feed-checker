@@ -126,6 +126,12 @@ export async function onRequest(context) {
     const { request, env, next } = context;
     const url = new URL(request.url);
 
+    // Skip auth for API routes - if user can see the page, they can use the API
+    // This also prevents issues with cookies not being sent on fetch requests
+    if (url.pathname.startsWith('/api/')) {
+        return next();
+    }
+
     // Get password from environment variable
     const SITE_PASSWORD = env.SITE_PASSWORD || 'changeme';
 
