@@ -9,6 +9,7 @@ class FeedViewer {
         this.isGoogleFeed = false;
         this.googleTaxonomy = null;
         this.hasSavedCurrentExclusions = false;
+        this.missingExcludedItems = [];
 
         // Pagination - render items in batches for performance
         this.displayLimit = 100;
@@ -671,6 +672,46 @@ class FeedViewer {
             `;
             this.feedContainer.appendChild(loadMoreDiv);
         }
+
+        // Show removed/missing products section (only on initial render, not append)
+        if (!append) {
+            this.renderMissingProducts();
+        }
+    }
+
+    renderMissingProducts() {
+        // Remove existing section
+        const existingSection = document.querySelector('.missing-products-section');
+        if (existingSection) {
+            existingSection.remove();
+        }
+
+        if (!this.missingExcludedItems || this.missingExcludedItems.length === 0) {
+            return;
+        }
+
+        const section = document.createElement('div');
+        section.className = 'missing-products-section';
+        section.innerHTML = `
+            <div class="missing-products-header">
+                <h3>⚠️ Removed from Feed (${this.missingExcludedItems.length})</h3>
+                <p>These products were previously excluded but are no longer in the current feed:</p>
+            </div>
+            <div class="missing-products-grid">
+                ${this.missingExcludedItems.map(item => `
+                    <div class="missing-product-card">
+                        <div class="missing-product-id">${item.id}</div>
+                        <div class="missing-product-title">${item.title || 'Unknown'}</div>
+                        ${item.price ? `<div class="missing-product-price">${item.price}</div>` : ''}
+                        ${item.productType ? `<div class="missing-product-category">${item.productType}</div>` : ''}
+                        ${item.googleProductCategory ? `<div class="missing-product-google">${this.getGoogleCategoryName(item.googleProductCategory)}</div>` : ''}
+                    </div>
+                `).join('')}
+            </div>
+        `;
+
+        // Insert after the feed container
+        this.feedContainer.parentNode.insertBefore(section, this.feedContainer.nextSibling);
     }
 
     loadMore() {
@@ -2057,10 +2098,23 @@ Next Steps:
                     this.feedData.some(item => item.id === id)
                 );
 
-                if (confirm(`Load ${foundIds.length} exclusions?\n\n(${data.excludedIds.length - foundIds.length} IDs not found in current feed)\n\nSaved by: ${data.savedBy || 'Unknown'}\nSaved at: ${new Date(data.savedAt).toLocaleString()}`)) {
+                // Find IDs that were excluded but no longer in feed
+                const missingIds = data.excludedIds.filter(id =>
+                    !this.feedData.some(item => item.id === id)
+                );
+
+                // Get details of missing items from saved data
+                const missingItems = data.excludedItems ?
+                    data.excludedItems.filter(item => missingIds.includes(item.id)) :
+                    missingIds.map(id => ({ id, title: 'Unknown' }));
+
+                if (confirm(`Load ${foundIds.length} exclusions?\n\n${missingIds.length > 0 ? `⚠️ ${missingIds.length} excluded items no longer in feed` : ''}\n\nSaved by: ${data.savedBy || 'Unknown'}\nSaved at: ${new Date(data.savedAt).toLocaleString()}`)) {
                     // Clear current and apply loaded
                     this.excludedItems.clear();
                     foundIds.forEach(id => this.excludedItems.add(id));
+
+                    // Store missing items for display
+                    this.missingExcludedItems = missingItems;
 
                     // Mark as saved since we just loaded from cloud
                     this.hasSavedCurrentExclusions = true;
@@ -2068,7 +2122,11 @@ Next Steps:
                     this.updateStats();
                     this.renderItems();
 
-                    alert(`✓ Loaded ${foundIds.length} exclusions`);
+                    let message = `✓ Loaded ${foundIds.length} exclusions`;
+                    if (missingItems.length > 0) {
+                        message += `\n\n${missingItems.length} previously excluded items no longer in feed - see "Removed Products" section below.`;
+                    }
+                    alert(message);
                 }
 
             } else {
