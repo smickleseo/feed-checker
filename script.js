@@ -4,7 +4,10 @@ class FeedViewer {
         this.excludedItems = new Set();
         this.filteredData = [];
         this.categories = new Set();
+        this.googleCategories = new Set();
         this.compareItems = new Set();
+        this.isGoogleFeed = false;
+        this.googleTaxonomy = null;
 
         // Pagination - render items in batches for performance
         this.displayLimit = 100;
@@ -12,6 +15,7 @@ class FeedViewer {
 
         this.initializeElements();
         this.bindEvents();
+        this.loadGoogleTaxonomy();
         // Don't load sample data automatically
     }
 
@@ -24,6 +28,8 @@ class FeedViewer {
         this.refreshBtn = document.getElementById('refreshFeed');
         this.searchInput = document.getElementById('searchFilter');
         this.categoryFilter = document.getElementById('categoryFilter');
+        this.googleCategoryFilter = document.getElementById('googleCategoryFilter');
+        this.googleCategoryGroup = document.getElementById('googleCategoryGroup');
         this.excludedFilter = document.getElementById('excludedFilter');
         this.statusFilter = document.getElementById('statusFilter');
         this.minPriceInput = document.getElementById('minPrice');
@@ -78,6 +84,7 @@ class FeedViewer {
         this.refreshBtn.addEventListener('click', () => this.refreshFeed());
         this.searchInput.addEventListener('input', () => this.filterItems());
         this.categoryFilter.addEventListener('change', () => this.filterItems());
+        this.googleCategoryFilter.addEventListener('change', () => this.filterItems());
         this.excludedFilter.addEventListener('change', () => this.filterItems());
         this.statusFilter.addEventListener('change', () => this.filterItems());
         this.minPriceInput.addEventListener('input', () => this.filterItems());
@@ -347,11 +354,11 @@ class FeedViewer {
             return element ? element.textContent.trim() : '';
         };
 
-        // Try multiple fields for category (different feeds use different fields)
-        // Google Shopping: product_type, google_product_category
-        // Meta/Facebook: product_type, fb_product_category, google_product_category
+        // Get Google Product Category (numeric ID or full path)
+        const googleProductCategory = getElementText('google_product_category') || '';
+
+        // Get product_type (WooCommerce category path)
         const productType = getElementText('product_type') ||
-                           getElementText('google_product_category') ||
                            getElementText('fb_product_category') ||
                            getElementText('category') ||
                            '';
@@ -366,6 +373,7 @@ class FeedViewer {
             imageLink: getElementText('image_link'),
             itemGroupId: getElementText('item_group_id'),
             productType: productType,
+            googleProductCategory: googleProductCategory,
             description: getElementText('description'),
             brand: getElementText('brand'),
             gtin: getElementText('gtin'),
@@ -390,25 +398,111 @@ class FeedViewer {
 
     updateCategories() {
         this.categories.clear();
+        this.googleCategories.clear();
+
         this.feedData.forEach(item => {
             if (item.productType) {
                 this.categories.add(item.productType);
             }
+            if (item.googleProductCategory) {
+                this.googleCategories.add(item.googleProductCategory);
+            }
         });
 
-        // Update category filter dropdown
-        this.categoryFilter.innerHTML = '<option value="">All Categories</option>';
+        // Detect if this is a Google feed (has google_product_category values)
+        this.isGoogleFeed = this.googleCategories.size > 0;
+
+        // Highlight Google Category filter if this is a Google feed
+        if (this.googleCategoryGroup) {
+            this.googleCategoryGroup.classList.toggle('primary-filter', this.isGoogleFeed);
+        }
+
+        // Update product type filter dropdown
+        this.categoryFilter.innerHTML = '<option value="">All Product Types</option>';
         Array.from(this.categories).sort().forEach(category => {
             const option = document.createElement('option');
             option.value = category;
             option.textContent = category;
             this.categoryFilter.appendChild(option);
         });
+
+        // Update Google category filter dropdown
+        this.googleCategoryFilter.innerHTML = '<option value="">All Google Categories</option>';
+        Array.from(this.googleCategories).sort((a, b) => {
+            // Sort numerically if both are numbers, otherwise alphabetically
+            const aNum = parseInt(a);
+            const bNum = parseInt(b);
+            if (!isNaN(aNum) && !isNaN(bNum)) {
+                return aNum - bNum;
+            }
+            return a.localeCompare(b);
+        }).forEach(category => {
+            const option = document.createElement('option');
+            option.value = category;
+            // Try to get human-readable name from taxonomy
+            const displayName = this.getGoogleCategoryName(category);
+            option.textContent = displayName;
+            this.googleCategoryFilter.appendChild(option);
+        });
+    }
+
+    // Load Google taxonomy for category name lookups
+    async loadGoogleTaxonomy() {
+        try {
+            const response = await fetch('google-taxonomy.txt');
+            if (response.ok) {
+                const text = await response.text();
+                this.googleTaxonomy = this.parseTaxonomy(text);
+                console.log(`Loaded ${Object.keys(this.googleTaxonomy).length} Google taxonomy entries`);
+            }
+        } catch (error) {
+            console.warn('Could not load Google taxonomy:', error);
+        }
+    }
+
+    parseTaxonomy(text) {
+        const taxonomy = {};
+        const lines = text.split('\n');
+        for (const line of lines) {
+            // Format: "ID - Category Path"
+            const match = line.match(/^(\d+)\s*-\s*(.+)$/);
+            if (match) {
+                const id = match[1];
+                const path = match[2].trim();
+                // Get the last part of the path as short name
+                const parts = path.split(' > ');
+                const shortName = parts[parts.length - 1];
+                taxonomy[id] = {
+                    id: id,
+                    path: path,
+                    shortName: shortName
+                };
+            }
+        }
+        return taxonomy;
+    }
+
+    getGoogleCategoryName(categoryValue) {
+        if (!categoryValue) return '';
+
+        // If it's already a path (contains ">"), return as-is
+        if (categoryValue.includes('>')) {
+            return categoryValue;
+        }
+
+        // If it's a numeric ID, look up the name
+        if (this.googleTaxonomy && this.googleTaxonomy[categoryValue]) {
+            const cat = this.googleTaxonomy[categoryValue];
+            return `${categoryValue} - ${cat.shortName}`;
+        }
+
+        return categoryValue;
     }
 
     filterItems() {
         const searchTerm = this.searchInput.value.toLowerCase();
         const selectedCategory = this.categoryFilter.value;
+        const selectedGoogleCategory = this.googleCategoryFilter.value;
         const excludedFilter = this.excludedFilter.value;
         const statusFilter = this.statusFilter.value;
         const minPrice = parseFloat(this.minPriceInput.value) || 0;
@@ -419,10 +513,14 @@ class FeedViewer {
             const matchesSearch = !searchTerm ||
                 item.title.toLowerCase().includes(searchTerm) ||
                 item.productType.toLowerCase().includes(searchTerm) ||
-                item.id.toLowerCase().includes(searchTerm);
+                item.id.toLowerCase().includes(searchTerm) ||
+                (item.googleProductCategory && item.googleProductCategory.toLowerCase().includes(searchTerm));
 
             const matchesCategory = !selectedCategory ||
                 item.productType === selectedCategory;
+
+            const matchesGoogleCategory = !selectedGoogleCategory ||
+                item.googleProductCategory === selectedGoogleCategory;
 
             const isExcluded = this.excludedItems.has(item.id);
             const matchesExcluded = !excludedFilter ||
@@ -445,7 +543,7 @@ class FeedViewer {
                 (priceFilter === 'with-price' && itemPrice > 0) ||
                 (priceFilter === 'no-price' && itemPrice === 0);
 
-            return matchesSearch && matchesCategory && matchesExcluded && matchesStatus && matchesPrice && matchesPriceType;
+            return matchesSearch && matchesCategory && matchesGoogleCategory && matchesExcluded && matchesStatus && matchesPrice && matchesPriceType;
         });
 
         // Apply sorting
@@ -573,7 +671,20 @@ class FeedViewer {
                 <h3 class="item-title">${item.title}</h3>
                 <div class="item-price">${item.price}</div>
 
-                ${item.productType ? `<div class="item-category">${item.productType}</div>` : ''}
+                <div class="item-categories">
+                    ${item.productType ? `
+                        <div class="category-row">
+                            <span class="category-label">Your Category:</span>
+                            <span class="category-value product-type">${item.productType}</span>
+                        </div>
+                    ` : ''}
+                    ${item.googleProductCategory ? `
+                        <div class="category-row">
+                            <span class="category-label">Google Category:</span>
+                            <span class="category-value google-category">${this.getGoogleCategoryName(item.googleProductCategory)}</span>
+                        </div>
+                    ` : ''}
+                </div>
 
                 <div class="availability-badge ${item.availability.replace(/[_\s]/g, '-')}">
                     ${item.availability.replace(/_/g, ' ')}

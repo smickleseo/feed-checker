@@ -12,7 +12,7 @@
             <div class="header-top">
                 <h1>Shopping Feed Viewer</h1>
                 <div class="header-right">
-                    <div class="version-info">v2.3.0</div>
+                    <div class="version-info">v2.4.0</div>
                     <a href="/api/logout" class="logout-btn" title="Sign out">Logout</a>
                 </div>
             </div>
@@ -72,10 +72,16 @@
 
             <!-- Filter bar -->
             <div class="controls-filters">
+                <div class="filter-group" id="googleCategoryGroup">
+                    <label>Google Category</label>
+                    <select id="googleCategoryFilter">
+                        <option value="">All Google Categories</option>
+                    </select>
+                </div>
                 <div class="filter-group">
-                    <label>Category</label>
+                    <label>Product Type</label>
                     <select id="categoryFilter">
-                        <option value="">All Categories</option>
+                        <option value="">All Product Types</option>
                     </select>
                 </div>
                 <div class="filter-group">
