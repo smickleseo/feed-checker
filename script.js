@@ -316,16 +316,43 @@ class FeedViewer {
     }
 
     parseItem(itemElement) {
+        // Helper to get element text - handles namespaced tags (g:, fb:, etc.)
         const getElementText = (tagName) => {
-            const element = itemElement.querySelector(tagName) || 
-                           itemElement.querySelector(`g\\:${tagName}`) ||
-                           itemElement.querySelector(`[*|${tagName}]`);
+            // Try without namespace
+            let element = itemElement.querySelector(tagName);
+
+            // Try with g: namespace (Google Shopping)
+            if (!element) {
+                const gElements = itemElement.getElementsByTagName(`g:${tagName}`);
+                if (gElements.length > 0) element = gElements[0];
+            }
+
+            // Try with fb: namespace (Facebook/Meta)
+            if (!element) {
+                const fbElements = itemElement.getElementsByTagName(`fb:${tagName}`);
+                if (fbElements.length > 0) element = fbElements[0];
+            }
+
+            // Last resort - search all elements for matching local name
+            if (!element) {
+                const allElements = itemElement.getElementsByTagName('*');
+                for (let el of allElements) {
+                    if (el.localName === tagName || el.tagName.endsWith(':' + tagName)) {
+                        element = el;
+                        break;
+                    }
+                }
+            }
+
             return element ? element.textContent.trim() : '';
         };
 
-        // Try multiple fields for category (AdTribes uses different ones)
+        // Try multiple fields for category (different feeds use different fields)
+        // Google Shopping: product_type, google_product_category
+        // Meta/Facebook: product_type, fb_product_category, google_product_category
         const productType = getElementText('product_type') ||
                            getElementText('google_product_category') ||
+                           getElementText('fb_product_category') ||
                            getElementText('category') ||
                            '';
 
