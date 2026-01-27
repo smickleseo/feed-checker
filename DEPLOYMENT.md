@@ -1,84 +1,159 @@
 # Deployment Guide - Shopping Feed Viewer
 
-## 🚀 **Free Deployment Options**
+## Cloudflare Pages (Recommended)
 
-### **Option 1: Render.com (Recommended - Solves CORS Issues)**
+This app is configured for Cloudflare Pages with Functions for the CORS proxy and password protection.
 
-**Why Render?** It's free and supports both frontend + backend, solving the CORS problem completely.
+### Quick Deploy
 
-1. **Push your code to GitHub** (you've already done this!)
+1. **Push to GitHub** (if not already)
+   ```bash
+   git add .
+   git commit -m "Add Cloudflare Pages support"
+   git push origin main
+   ```
 
-2. **Go to [render.com](https://render.com)** and sign up (free)
+2. **Connect to Cloudflare Pages**
+   - Go to [Cloudflare Dashboard](https://dash.cloudflare.com/) > Pages
+   - Click "Create a project" > "Connect to Git"
+   - Select your repository
+   - Configure build settings:
+     - **Build command:** (leave empty - static site)
+     - **Build output directory:** `/`
 
-3. **Create a new Web Service:**
-   - Connect your GitHub repository
-   - **Build Command:** `npm install`
-   - **Start Command:** `npm start`
-   - **Environment:** Node
-   - **Plan:** Free
+3. **Set the Password**
+   - After deployment, go to your Pages project > Settings > Environment variables
+   - Add variable:
+     - **Name:** `SITE_PASSWORD`
+     - **Value:** Your team password (e.g., `YourSecurePassword123`)
+   - Click "Save" and redeploy
 
-4. **Deploy!** Render will give you a URL like: `https://your-app-name.onrender.com`
+4. **Share with Team**
+   - Your app will be at: `https://your-project.pages.dev`
+   - Share the URL and password with your team
 
-5. **Share the URL** - Anyone can now load real feed URLs without CORS issues!
+### Environment Variables
 
----
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `SITE_PASSWORD` | Password for team access | Yes |
 
-### **Option 2: Railway.app (Alternative)**
+### How It Works
 
-1. Go to [railway.app](https://railway.app)
-2. Connect GitHub repo
-3. Deploy automatically
-4. Get live URL
-
----
-
-### **Option 3: Static Hosting (GitHub Pages/Netlify)**
-
-**Pros:** Super simple, instant
-**Cons:** Only file upload works (no live feed URLs due to CORS)
-
-**Best for:** Quick demos where users can upload XML files
-
----
-
-## 📋 **What Each Option Gives You**
-
-| Option | Live Feed URLs | File Upload | Ease | Cost |
-|--------|---------------|-------------|------|------|
-| **Render/Railway** | ✅ Works | ✅ Works | Medium | Free |
-| **GitHub Pages** | ❌ CORS Issues | ✅ Works | Easy | Free |
-| **Local Only** | ❌ CORS Issues | ✅ Works | Easy | Free |
-
----
-
-## 🎯 **Recommended Approach**
-
-1. **For quick sharing:** Use GitHub Pages + tell users to upload XML files
-2. **For production use:** Deploy to Render.com for full functionality
-3. **For local testing:** Run `npm install && npm start` locally
-
----
-
-## 💡 **Instructions for Users**
-
-### **If deployed with backend (Render/Railway):**
-"Just paste your feed URL and click Load Feed - it works with any public XML feed!"
-
-### **If static hosting only (GitHub Pages):**
-"Click 'Upload XML File' and upload your feed's XML file directly. Live URLs won't work due to browser security restrictions."
-
----
-
-## 🔧 **Local Development**
-
-```bash
-# Install dependencies
-npm install
-
-# Start the server
-npm start
-
-# Open browser to http://localhost:3000
+```
+Team Member → Password Login → Session Cookie → Full App Access
+                                                      ↓
+                                              /api/fetch-feed
+                                                      ↓
+                                         AdTribes/WordPress Feeds
 ```
 
-The backend proxy will handle CORS issues when running locally too! 
+- Password protection via Cloudflare Function middleware
+- Session stored in secure HTTP-only cookie (7 days)
+- CORS proxy runs at the edge for fast feed fetching
+- Feeds cached for 5 minutes at the edge
+
+---
+
+## Using with AdTribes Product Feed Elite
+
+Your AdTribes feeds are accessed via their public URLs. Common patterns:
+
+```
+https://yoursite.com/feed/google/
+https://yoursite.com/feed/facebook/
+https://yoursite.com/?feed=woosea&channel_hash=XXXXX
+```
+
+Just paste these URLs into the Feed Viewer and click "Load Feed".
+
+---
+
+## Local Development
+
+```bash
+# Install Wrangler CLI
+npm install -g wrangler
+
+# Login to Cloudflare
+wrangler login
+
+# Run locally with Functions
+npx wrangler pages dev . --port 3000
+
+# Or use the Express server (no password protection)
+npm install
+npm start
+```
+
+**Note:** For local testing with password, set the environment variable:
+```bash
+# Windows
+set SITE_PASSWORD=testpassword
+npx wrangler pages dev .
+
+# Mac/Linux
+SITE_PASSWORD=testpassword npx wrangler pages dev .
+```
+
+---
+
+## Project Structure
+
+```
+feed-checker/
+├── functions/
+│   ├── _middleware.js      # Password protection
+│   └── api/
+│       ├── fetch-feed.js   # CORS proxy for XML feeds
+│       └── logout.js       # Session logout
+├── index.html              # Main app
+├── script.js               # Frontend logic
+├── styles.css              # Styling
+├── server.js               # Legacy Express server (for local dev)
+└── package.json
+```
+
+---
+
+## Alternative Deployment Options
+
+### Render.com / Railway.app (Express Server)
+
+If you prefer the traditional Node.js server:
+
+1. Push to GitHub
+2. Connect to Render.com or Railway.app
+3. Set build command: `npm install`
+4. Set start command: `npm start`
+
+Note: These don't include password protection by default.
+
+### Static Hosting (GitHub Pages/Netlify)
+
+For static-only hosting (file upload only, no live URL fetching):
+
+1. Remove the `functions/` directory
+2. Deploy to GitHub Pages or Netlify
+3. Users must upload XML files manually (no CORS proxy)
+
+---
+
+## Troubleshooting
+
+### "Incorrect password" error
+- Check that `SITE_PASSWORD` is set in Cloudflare Pages environment variables
+- Redeploy after adding the variable
+
+### Feed not loading
+- Ensure the feed URL is publicly accessible
+- Check that the feed returns valid XML
+- Try uploading the XML file directly as a test
+
+### Session expired
+- Sessions last 7 days
+- Click "Logout" and log back in
+
+### Local development issues
+- Make sure Wrangler is installed: `npm install -g wrangler`
+- Check you're logged in: `wrangler whoami`

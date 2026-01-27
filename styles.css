@@ -43,6 +43,12 @@ body {
     margin-bottom: 0;
 }
 
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
 .version-info {
     background: #667eea;
     color: white;
@@ -51,6 +57,22 @@ body {
     font-size: 14px;
     font-weight: 600;
     letter-spacing: 0.5px;
+}
+
+.logout-btn {
+    background: #e53e3e;
+    color: white;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.logout-btn:hover {
+    background: #c53030;
+    transform: translateY(-1px);
 }
 
 .url-input-section {

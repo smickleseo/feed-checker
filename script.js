@@ -167,14 +167,10 @@ class FeedViewer {
         this.showLoading(true);
         this.hideError();
 
-        // Try our backend proxy first (if available), then fallback to CORS proxies
+        // Use our backend proxy (Cloudflare Function or Express server)
         const proxyServices = [
-            // Our backend proxy (works when deployed with server.js)
             `/api/fetch-feed?url=${encodeURIComponent(url)}`,
-            // Fallback CORS proxies
-            `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-            `https://cors-anywhere.herokuapp.com/${url}`,
-            // Direct fetch (will work if the server supports CORS)
+            // Direct fetch fallback (works if the source has CORS headers)
             url
         ];
 
