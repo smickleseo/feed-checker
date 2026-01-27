@@ -211,6 +211,7 @@ class FeedViewer {
                 
                 console.log('Successfully loaded feed');
                 this.parseFeedData(xmlText);
+                this.showLoading(false);
                 return; // Success! Exit the function
                 
             } catch (error) {
