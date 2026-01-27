@@ -38,57 +38,96 @@
         </header>
 
         <div class="controls">
-            <div class="stats">
-                <span id="totalItems">0 items</span>
-                <span id="excludedItems">0 excluded</span>
-                <span id="visibleItems">0 visible</span>
-            </div>
-            <div class="bulk-actions">
-                <button id="excludeAllVisible" class="bulk-action-btn">Exclude All Visible</button>
-                <button id="includeAllVisible" class="bulk-action-btn">Include All Visible</button>
-            </div>
-            <div class="filters">
-                <input type="text" id="searchFilter" placeholder="Search products..." class="search-input">
-                <select id="categoryFilter" class="category-filter">
-                    <option value="">All Categories</option>
-                </select>
-                <select id="excludedFilter" class="excluded-filter">
-                    <option value="">All Items</option>
-                    <option value="excluded">Excluded Only</option>
-                    <option value="not-excluded">Not Excluded Only</option>
-                </select>
-                <select id="statusFilter" class="status-filter">
-                    <option value="">All Status</option>
-                    <option value="in_stock">In Stock</option>
-                    <option value="out_of_stock">Out of Stock</option>
-                    <option value="backorder">Backorder</option>
-                    <option value="preorder">Preorder</option>
-                    <option value="limited_availability">Limited Availability</option>
-                </select>
-                <div class="price-filter-container">
-                    <input type="number" id="minPrice" placeholder="Min price" class="price-input">
-                    <span class="price-separator">-</span>
-                    <input type="number" id="maxPrice" placeholder="Max price" class="price-input">
+            <!-- Top bar: Stats and Search -->
+            <div class="controls-top">
+                <div class="stats">
+                    <div class="stat-item">
+                        <span class="stat-value" id="totalItems">0</span>
+                        <span class="stat-label">Total</span>
+                    </div>
+                    <div class="stat-item excluded">
+                        <span class="stat-value" id="excludedItems">0</span>
+                        <span class="stat-label">Excluded</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="visibleItems">0</span>
+                        <span class="stat-label">Showing</span>
+                    </div>
                 </div>
-                <select id="priceFilter" class="price-filter">
-                    <option value="">All Prices</option>
-                    <option value="with-price">With Price (>£0)</option>
-                    <option value="no-price">No Price (£0)</option>
-                </select>
-                <select id="sortBy" class="sort-filter">
-                    <option value="">Default Order</option>
-                    <option value="title-asc">Title A-Z</option>
-                    <option value="title-desc">Title Z-A</option>
-                    <option value="price-asc">Price Low-High</option>
-                    <option value="price-desc">Price High-Low</option>
-                    <option value="id-asc">ID Ascending</option>
-                    <option value="id-desc">ID Descending</option>
-                    <option value="availability">Availability</option>
-                </select>
-                <button id="compareBtn" class="compare-btn">Compare (<span id="compareCount">0</span>)</button>
-                <button id="exportView" class="export-view-btn" title="Export currently filtered/visible items to CSV">Export View</button>
-                <button id="exportExclusions" class="export-btn" title="Export only excluded items">Export Exclusions</button>
-                <button id="importExclusions" class="import-btn">Import Exclusions</button>
+                <div class="search-container">
+                    <input type="text" id="searchFilter" placeholder="Search products..." class="search-input">
+                </div>
+                <div class="sort-container">
+                    <label>Sort:</label>
+                    <select id="sortBy" class="sort-filter">
+                        <option value="">Default</option>
+                        <option value="title-asc">Title A-Z</option>
+                        <option value="title-desc">Title Z-A</option>
+                        <option value="price-asc">Price Low-High</option>
+                        <option value="price-desc">Price High-Low</option>
+                        <option value="availability">Availability</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Filter bar -->
+            <div class="controls-filters">
+                <div class="filter-group">
+                    <label>Category</label>
+                    <select id="categoryFilter">
+                        <option value="">All Categories</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Status</label>
+                    <select id="statusFilter">
+                        <option value="">All</option>
+                        <option value="in_stock">In Stock</option>
+                        <option value="out_of_stock">Out of Stock</option>
+                        <option value="backorder">Backorder</option>
+                        <option value="preorder">Preorder</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Exclusions</label>
+                    <select id="excludedFilter">
+                        <option value="">All Items</option>
+                        <option value="excluded">Excluded Only</option>
+                        <option value="not-excluded">Not Excluded</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Price Range</label>
+                    <div class="price-inputs">
+                        <input type="number" id="minPrice" placeholder="Min">
+                        <span>-</span>
+                        <input type="number" id="maxPrice" placeholder="Max">
+                    </div>
+                </div>
+                <div class="filter-group">
+                    <label>Price</label>
+                    <select id="priceFilter">
+                        <option value="">Any</option>
+                        <option value="with-price">Has Price</option>
+                        <option value="no-price">No Price</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Actions bar -->
+            <div class="controls-actions">
+                <div class="action-group">
+                    <button id="excludeAllVisible" class="action-btn danger">Exclude All Visible</button>
+                    <button id="includeAllVisible" class="action-btn success">Include All Visible</button>
+                </div>
+                <div class="action-group">
+                    <button id="compareBtn" class="action-btn">Compare (<span id="compareCount">0</span>)</button>
+                    <button id="exportView" class="action-btn">Export View</button>
+                </div>
+                <div class="action-group">
+                    <button id="exportExclusions" class="action-btn primary">Export Exclusions</button>
+                    <button id="importExclusions" class="action-btn">Import</button>
+                </div>
             </div>
         </div>
 

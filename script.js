@@ -728,9 +728,9 @@ class FeedViewer {
         const excluded = this.excludedItems.size;
         const visible = this.filteredData.length;
 
-        this.totalItemsSpan.textContent = `${total} items`;
-        this.excludedItemsSpan.textContent = `${excluded} excluded`;
-        this.visibleItemsSpan.textContent = `${visible} visible`;
+        this.totalItemsSpan.textContent = total;
+        this.excludedItemsSpan.textContent = excluded;
+        this.visibleItemsSpan.textContent = visible;
     }
 
     // Import functionality
