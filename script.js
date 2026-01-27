@@ -12,6 +12,7 @@ class FeedViewer {
     }
 
     initializeElements() {
+        this.feedPresets = document.getElementById('feedPresets');
         this.feedUrlInput = document.getElementById('feedUrl');
         this.fileUpload = document.getElementById('fileUpload');
         this.uploadBtn = document.getElementById('uploadBtn');
@@ -60,6 +61,15 @@ class FeedViewer {
     }
 
     bindEvents() {
+        // Feed preset dropdown - auto-load when selected
+        this.feedPresets.addEventListener('change', () => {
+            const selectedUrl = this.feedPresets.value;
+            if (selectedUrl) {
+                this.feedUrlInput.value = selectedUrl;
+                this.loadFeed();
+            }
+        });
+
         this.loadBtn.addEventListener('click', () => this.loadFeed());
         this.refreshBtn.addEventListener('click', () => this.refreshFeed());
         this.searchInput.addEventListener('input', () => this.filterItems());

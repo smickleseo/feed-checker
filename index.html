@@ -17,7 +17,18 @@
                 </div>
             </div>
             <div class="url-input-section">
-                <input type="url" id="feedUrl" placeholder="Enter feed URL..." class="url-input">
+                <select id="feedPresets" class="feed-presets">
+                    <option value="">-- Select a saved feed --</option>
+                    <optgroup label="Surf & Turf">
+                        <option value="https://surfturf.co.uk/wp-content/uploads/woo-product-feed-pro/xml/Qo5NbmlZSq2dTbEQ8Skt8MqZXm6w0fXH.xml">Surf & Turf - Meta Feed</option>
+                        <option value="https://surfturf.co.uk/wp-content/uploads/woo-product-feed-pro/xml/EN3F0DReRR5Zfuj48N7mbDWdd9KIkIwU.xml">Surf & Turf - Google Shopping</option>
+                    </optgroup>
+                    <optgroup label="Instashade">
+                        <option value="https://www.instashade.co.uk/wp-content/uploads/woo-product-feed-pro/xml/qkpl120donkso39sm2q0z9zomtnsaqxi.xml">Instashade - Meta Feed</option>
+                        <option value="https://www.instashade.co.uk/wp-content/uploads/woo-product-feed-pro/xml/iabvyqrymtew19vxvwnmsgbuyyqlsldq.xml">Instashade - Google Shopping</option>
+                    </optgroup>
+                </select>
+                <input type="url" id="feedUrl" placeholder="Or enter feed URL..." class="url-input">
                 <input type="file" id="fileUpload" accept=".xml,.rss" class="file-upload" style="display: none;">
                 <input type="file" id="exclusionUpload" accept=".csv,.json,.txt" class="file-upload" style="display: none;">
                 <button id="uploadBtn" class="upload-btn">Upload XML File</button>

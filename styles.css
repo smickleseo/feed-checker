@@ -79,6 +79,36 @@ body {
     display: flex;
     gap: 12px;
     flex-wrap: wrap;
+    align-items: center;
+}
+
+.feed-presets {
+    padding: 12px 16px;
+    border: 2px solid #667eea;
+    border-radius: 8px;
+    font-size: 16px;
+    background: white;
+    color: #333;
+    cursor: pointer;
+    min-width: 220px;
+    font-weight: 500;
+}
+
+.feed-presets:focus {
+    outline: none;
+    border-color: #5a6fd8;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+}
+
+.feed-presets optgroup {
+    font-weight: 600;
+    color: #667eea;
+}
+
+.feed-presets option {
+    font-weight: 400;
+    color: #333;
+    padding: 8px;
 }
 
 .url-input {
