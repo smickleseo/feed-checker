@@ -506,6 +506,55 @@ body {
     font-weight: 600;
 }
 
+/* Save First Modal */
+.save-first-content {
+    text-align: center;
+    padding: 20px 0;
+}
+
+.save-first-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+}
+
+.save-first-content p {
+    color: #2d3748;
+    font-size: 16px;
+    margin-bottom: 8px;
+}
+
+.save-first-subtitle {
+    color: #718096 !important;
+    font-size: 14px !important;
+}
+
+.save-first-input {
+    margin-top: 20px;
+    text-align: left;
+}
+
+.save-first-input label {
+    display: block;
+    font-size: 13px;
+    color: #4a5568;
+    margin-bottom: 6px;
+    font-weight: 500;
+}
+
+.save-first-input input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 15px;
+    transition: border-color 0.2s;
+}
+
+.save-first-input input:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
 /* Missing/Removed Products Section */
 .missing-products-section {
     background: #fffaf0;

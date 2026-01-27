@@ -52,6 +52,9 @@ class FeedViewer {
         this.historyBtn = document.getElementById('historyExclusions');
         this.historyModal = document.getElementById('historyModal');
         this.historyList = document.getElementById('historyList');
+        this.saveFirstModal = document.getElementById('saveFirstModal');
+        this.saveFirstName = document.getElementById('saveFirstName');
+        this.saveFirstBtn = document.getElementById('saveFirstBtn');
         this.loadingDiv = document.getElementById('loading');
         this.errorDiv = document.getElementById('error');
         this.errorMessage = document.getElementById('errorMessage');
@@ -169,6 +172,14 @@ class FeedViewer {
             this.historyModal.addEventListener('click', (e) => {
                 if (e.target === this.historyModal) {
                     this.closeHistoryModal();
+                }
+            });
+        }
+
+        if (this.saveFirstModal) {
+            this.saveFirstModal.addEventListener('click', (e) => {
+                if (e.target === this.saveFirstModal) {
+                    this.closeSaveFirstModal();
                 }
             });
         }
@@ -1562,9 +1573,9 @@ class FeedViewer {
             return;
         }
 
-        // Require save before export
+        // Require save before export - show modal
         if (!this.hasSavedCurrentExclusions) {
-            alert('Please save your exclusions first before exporting.\n\nClick the "Save" button to save your exclusions to the cloud, then you can export.');
+            this.showSaveFirstModal();
             return;
         }
 
@@ -2213,6 +2224,70 @@ Next Steps:
 
     closeHistoryModal() {
         this.historyModal.classList.add('hidden');
+    }
+
+    showSaveFirstModal() {
+        this.saveFirstName.value = '';
+        this.saveFirstModal.classList.remove('hidden');
+        this.saveFirstName.focus();
+    }
+
+    closeSaveFirstModal() {
+        this.saveFirstModal.classList.add('hidden');
+    }
+
+    async saveAndExport() {
+        const feedUrl = this.feedUrlInput.value.trim();
+        const savedBy = this.saveFirstName.value.trim() || 'Team Member';
+
+        if (!feedUrl) {
+            alert('Please load a feed first.');
+            return;
+        }
+
+        const excludedList = Array.from(this.excludedItems);
+        const excludedItemsData = this.feedData.filter(item => this.excludedItems.has(item.id));
+
+        try {
+            this.saveFirstBtn.disabled = true;
+            this.saveFirstBtn.textContent = 'Saving...';
+
+            const response = await fetch('/api/exclusions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    feedUrl,
+                    excludedIds: excludedList,
+                    excludedItems: excludedItemsData.map(item => ({
+                        id: item.id,
+                        title: item.title,
+                        price: item.price,
+                        productType: item.productType,
+                        googleProductCategory: item.googleProductCategory
+                    })),
+                    savedBy
+                })
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                this.hasSavedCurrentExclusions = true;
+                this.closeSaveFirstModal();
+
+                // Now show the export modal
+                this.exportModal.classList.remove('hidden');
+            } else {
+                throw new Error(result.error || result.message || 'Failed to save');
+            }
+
+        } catch (error) {
+            console.error('Save failed:', error);
+            alert(`Failed to save: ${error.message}`);
+        } finally {
+            this.saveFirstBtn.disabled = false;
+            this.saveFirstBtn.textContent = 'Save & Continue to Export';
+        }
     }
 
     // Comparison functionality

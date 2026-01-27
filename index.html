@@ -222,6 +222,31 @@
         </div>
     </div>
 
+    <!-- Save First Modal -->
+    <div id="saveFirstModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Save Before Export</h3>
+                <button class="modal-close" onclick="feedViewer.closeSaveFirstModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="save-first-content">
+                    <div class="save-first-icon">💾</div>
+                    <p>Please save your exclusions before exporting.</p>
+                    <p class="save-first-subtitle">This ensures your team has a record of these exclusions.</p>
+                    <div class="save-first-input">
+                        <label for="saveFirstName">Your name or note:</label>
+                        <input type="text" id="saveFirstName" placeholder="Team Member" value="">
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button id="saveFirstBtn" class="modal-option-btn primary" onclick="feedViewer.saveAndExport()">Save & Continue to Export</button>
+                    <button onclick="feedViewer.closeSaveFirstModal()" class="modal-option-btn">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- History Modal -->
     <div id="historyModal" class="modal hidden">
         <div class="modal-content">
