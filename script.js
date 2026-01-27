@@ -323,6 +323,12 @@ class FeedViewer {
             return element ? element.textContent.trim() : '';
         };
 
+        // Try multiple fields for category (AdTribes uses different ones)
+        const productType = getElementText('product_type') ||
+                           getElementText('google_product_category') ||
+                           getElementText('category') ||
+                           '';
+
         const item = {
             id: getElementText('id'),
             title: getElementText('title'),
@@ -332,7 +338,7 @@ class FeedViewer {
             link: getElementText('link'),
             imageLink: getElementText('image_link'),
             itemGroupId: getElementText('item_group_id'),
-            productType: getElementText('product_type'),
+            productType: productType,
             description: getElementText('description'),
             brand: getElementText('brand'),
             gtin: getElementText('gtin'),
