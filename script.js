@@ -8,6 +8,7 @@ class FeedViewer {
         this.compareItems = new Set();
         this.isGoogleFeed = false;
         this.googleTaxonomy = null;
+        this.hasSavedCurrentExclusions = false;
 
         // Pagination - render items in batches for performance
         this.displayLimit = 100;
@@ -754,8 +755,11 @@ class FeedViewer {
         const item = this.feedData.find(i => i.id === itemId);
         if (!item) return;
 
+        // Mark as unsaved when exclusions change
+        this.hasSavedCurrentExclusions = false;
+
         const isCurrentlyExcluded = this.excludedItems.has(itemId);
-        
+
         if (!isCurrentlyExcluded) {
             // When excluding an item, ask about variants
             this.handleExclusionWithVariants(item);
@@ -1517,6 +1521,12 @@ class FeedViewer {
             return;
         }
 
+        // Require save before export
+        if (!this.hasSavedCurrentExclusions) {
+            alert('Please save your exclusions first before exporting.\n\nClick the "Save" button to save your exclusions to the cloud, then you can export.');
+            return;
+        }
+
         console.log('Export button clicked, checking modal...');
         
         if (!this.exportModal) {
@@ -2001,7 +2011,8 @@ Next Steps:
             const result = await response.json();
 
             if (response.ok) {
-                alert(`✓ Saved ${result.count} exclusions successfully!\n\nSaved at: ${new Date(result.savedAt).toLocaleString()}`);
+                this.hasSavedCurrentExclusions = true;
+                alert(`✓ Saved ${result.count} exclusions successfully!\n\nSaved at: ${new Date(result.savedAt).toLocaleString()}\n\nYou can now export your exclusions.`);
             } else {
                 throw new Error(result.error || result.message || 'Failed to save');
             }
@@ -2050,6 +2061,9 @@ Next Steps:
                     // Clear current and apply loaded
                     this.excludedItems.clear();
                     foundIds.forEach(id => this.excludedItems.add(id));
+
+                    // Mark as saved since we just loaded from cloud
+                    this.hasSavedCurrentExclusions = true;
 
                     this.updateStats();
                     this.renderItems();
@@ -2273,6 +2287,7 @@ Next Steps:
 
         const count = this.filteredData.length;
         if (confirm(`Are you sure you want to exclude all ${count} visible items?`)) {
+            this.hasSavedCurrentExclusions = false;
             this.filteredData.forEach(item => {
                 this.excludedItems.add(item.id);
             });
@@ -2291,6 +2306,7 @@ Next Steps:
 
         const count = excludedVisible.length;
         if (confirm(`Are you sure you want to include all ${count} excluded items in the current view?`)) {
+            this.hasSavedCurrentExclusions = false;
             excludedVisible.forEach(item => {
                 this.excludedItems.delete(item.id);
             });
