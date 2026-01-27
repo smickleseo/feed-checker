@@ -398,6 +398,25 @@ body {
     background: #f0fff4;
 }
 
+/* Load More button */
+.load-more-btn {
+    padding: 14px 40px;
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.load-more-btn:hover {
+    background: #5a6fd8;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
 /* Legacy class compatibility */
 .category-filter, .status-filter, .excluded-filter, .price-filter {
     padding: 8px 12px;

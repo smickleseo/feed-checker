@@ -6,6 +6,10 @@ class FeedViewer {
         this.categories = new Set();
         this.compareItems = new Set();
 
+        // Pagination - render items in batches for performance
+        this.displayLimit = 100;
+        this.displayedCount = 0;
+
         this.initializeElements();
         this.bindEvents();
         // Don't load sample data automatically
@@ -465,23 +469,58 @@ class FeedViewer {
         });
     }
 
-    renderItems() {
-        this.feedContainer.innerHTML = '';
+    renderItems(append = false) {
+        // Reset count when not appending (new filter/search)
+        if (!append) {
+            this.feedContainer.innerHTML = '';
+            this.displayedCount = 0;
+        }
 
         if (this.filteredData.length === 0) {
             this.feedContainer.innerHTML = `
                 <div style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; background: white; border-radius: 12px;">
                     <h3>No items found</h3>
-                    <p>Try adjusting your search or category filter.</p>
+                    <p>Try adjusting your search or filters.</p>
                 </div>
             `;
             return;
         }
 
-        this.filteredData.forEach(item => {
-            const itemElement = this.createItemElement(item);
+        // Remove existing "Load More" button if present
+        const existingLoadMore = this.feedContainer.querySelector('.load-more-container');
+        if (existingLoadMore) {
+            existingLoadMore.remove();
+        }
+
+        // Calculate how many to show
+        const startIndex = this.displayedCount;
+        const endIndex = Math.min(startIndex + this.displayLimit, this.filteredData.length);
+
+        // Render batch of items
+        for (let i = startIndex; i < endIndex; i++) {
+            const itemElement = this.createItemElement(this.filteredData[i]);
             this.feedContainer.appendChild(itemElement);
-        });
+        }
+
+        this.displayedCount = endIndex;
+
+        // Add "Load More" button if there are more items
+        const remaining = this.filteredData.length - this.displayedCount;
+        if (remaining > 0) {
+            const loadMoreDiv = document.createElement('div');
+            loadMoreDiv.className = 'load-more-container';
+            loadMoreDiv.style.cssText = 'grid-column: 1 / -1; text-align: center; padding: 20px;';
+            loadMoreDiv.innerHTML = `
+                <button class="load-more-btn" onclick="feedViewer.loadMore()">
+                    Load More (${remaining} remaining)
+                </button>
+            `;
+            this.feedContainer.appendChild(loadMoreDiv);
+        }
+    }
+
+    loadMore() {
+        this.renderItems(true);
     }
 
     createItemElement(item) {
