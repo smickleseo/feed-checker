@@ -416,6 +416,96 @@ body {
     background: #f0fff4;
 }
 
+.action-btn.save {
+    background: #38a169;
+    color: white;
+    border-color: #38a169;
+}
+
+.action-btn.save:hover {
+    background: #2f855a;
+}
+
+/* History Modal Styles */
+.history-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.history-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: #718096;
+}
+
+.history-empty p {
+    margin-bottom: 8px;
+}
+
+.history-header {
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e2e8f0;
+    margin-bottom: 12px;
+}
+
+.history-header p {
+    color: #4a5568;
+    font-size: 14px;
+}
+
+.history-items {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: #f7fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.history-item.current {
+    background: #ebf8ff;
+    border-color: #90cdf4;
+}
+
+.history-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.history-date {
+    font-weight: 600;
+    color: #2d3748;
+    font-size: 14px;
+}
+
+.history-by {
+    color: #718096;
+    font-size: 13px;
+}
+
+.history-count {
+    color: #667eea;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.history-badge {
+    background: #4299e1;
+    color: white;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
 /* Load More button */
 .load-more-btn {
     padding: 14px 40px;

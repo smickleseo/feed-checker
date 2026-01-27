@@ -45,6 +45,11 @@ class FeedViewer {
         this.exportBtn = document.getElementById('exportExclusions');
         this.importBtn = document.getElementById('importExclusions');
         this.exclusionUpload = document.getElementById('exclusionUpload');
+        this.saveBtn = document.getElementById('saveExclusions');
+        this.loadBtn2 = document.getElementById('loadExclusions');
+        this.historyBtn = document.getElementById('historyExclusions');
+        this.historyModal = document.getElementById('historyModal');
+        this.historyList = document.getElementById('historyList');
         this.loadingDiv = document.getElementById('loading');
         this.errorDiv = document.getElementById('error');
         this.errorMessage = document.getElementById('errorMessage');
@@ -97,6 +102,9 @@ class FeedViewer {
         this.includeAllVisibleBtn.addEventListener('click', () => this.includeAllVisible());
         this.exportBtn.addEventListener('click', () => this.exportExclusions());
         this.importBtn.addEventListener('click', () => this.importExclusions());
+        this.saveBtn.addEventListener('click', () => this.saveExclusionsToCloud());
+        this.loadBtn2.addEventListener('click', () => this.loadExclusionsFromCloud());
+        this.historyBtn.addEventListener('click', () => this.showExclusionHistory());
         
         // Handle file upload
         this.uploadBtn.addEventListener('click', () => {
@@ -151,6 +159,14 @@ class FeedViewer {
             this.importModal.addEventListener('click', (e) => {
                 if (e.target === this.importModal) {
                     this.closeImportModal();
+                }
+            });
+        }
+
+        if (this.historyModal) {
+            this.historyModal.addEventListener('click', (e) => {
+                if (e.target === this.historyModal) {
+                    this.closeHistoryModal();
                 }
             });
         }
@@ -1938,6 +1954,193 @@ Next Steps:
             chunks.push(array.slice(i, i + chunkSize));
         }
         return chunks;
+    }
+
+    // Cloud Save/Load functionality (Cloudflare KV)
+    async saveExclusionsToCloud() {
+        const feedUrl = this.feedUrlInput.value.trim();
+
+        if (!feedUrl) {
+            alert('Please load a feed first before saving exclusions.');
+            return;
+        }
+
+        if (this.excludedItems.size === 0) {
+            alert('No exclusions to save.');
+            return;
+        }
+
+        const excludedList = Array.from(this.excludedItems);
+        const excludedItemsData = this.feedData.filter(item => this.excludedItems.has(item.id));
+
+        // Prompt for a name/note
+        const savedBy = prompt('Enter your name or a note for this save:', 'Team Member');
+        if (savedBy === null) return; // Cancelled
+
+        try {
+            this.saveBtn.disabled = true;
+            this.saveBtn.textContent = 'Saving...';
+
+            const response = await fetch('/api/exclusions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    feedUrl,
+                    excludedIds: excludedList,
+                    excludedItems: excludedItemsData.map(item => ({
+                        id: item.id,
+                        title: item.title,
+                        price: item.price,
+                        productType: item.productType,
+                        googleProductCategory: item.googleProductCategory
+                    })),
+                    savedBy: savedBy || 'Unknown'
+                })
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                alert(`✓ Saved ${result.count} exclusions successfully!\n\nSaved at: ${new Date(result.savedAt).toLocaleString()}`);
+            } else {
+                throw new Error(result.error || result.message || 'Failed to save');
+            }
+
+        } catch (error) {
+            console.error('Save failed:', error);
+            alert(`Failed to save exclusions: ${error.message}\n\nMake sure Cloudflare KV is configured.`);
+        } finally {
+            this.saveBtn.disabled = false;
+            this.saveBtn.textContent = 'Save';
+        }
+    }
+
+    async loadExclusionsFromCloud() {
+        const feedUrl = this.feedUrlInput.value.trim();
+
+        if (!feedUrl) {
+            alert('Please load a feed first before loading exclusions.');
+            return;
+        }
+
+        if (this.feedData.length === 0) {
+            alert('Please load a feed first.');
+            return;
+        }
+
+        try {
+            this.loadBtn2.disabled = true;
+            this.loadBtn2.textContent = 'Loading...';
+
+            const response = await fetch(`/api/exclusions?feedUrl=${encodeURIComponent(feedUrl)}`);
+            const data = await response.json();
+
+            if (response.ok) {
+                if (!data.excludedIds || data.excludedIds.length === 0) {
+                    alert('No saved exclusions found for this feed.');
+                    return;
+                }
+
+                // Count how many IDs exist in current feed
+                const foundIds = data.excludedIds.filter(id =>
+                    this.feedData.some(item => item.id === id)
+                );
+
+                if (confirm(`Load ${foundIds.length} exclusions?\n\n(${data.excludedIds.length - foundIds.length} IDs not found in current feed)\n\nSaved by: ${data.savedBy || 'Unknown'}\nSaved at: ${new Date(data.savedAt).toLocaleString()}`)) {
+                    // Clear current and apply loaded
+                    this.excludedItems.clear();
+                    foundIds.forEach(id => this.excludedItems.add(id));
+
+                    this.updateStats();
+                    this.renderItems();
+
+                    alert(`✓ Loaded ${foundIds.length} exclusions`);
+                }
+
+            } else {
+                throw new Error(data.error || data.message || 'Failed to load');
+            }
+
+        } catch (error) {
+            console.error('Load failed:', error);
+            alert(`Failed to load exclusions: ${error.message}`);
+        } finally {
+            this.loadBtn2.disabled = false;
+            this.loadBtn2.textContent = 'Load';
+        }
+    }
+
+    async showExclusionHistory() {
+        const feedUrl = this.feedUrlInput.value.trim();
+
+        if (!feedUrl) {
+            alert('Please load a feed first to view history.');
+            return;
+        }
+
+        try {
+            this.historyBtn.disabled = true;
+            this.historyBtn.textContent = 'Loading...';
+
+            const response = await fetch(`/api/exclusions?feedUrl=${encodeURIComponent(feedUrl)}&history=true`);
+            const data = await response.json();
+
+            if (response.ok) {
+                this.renderHistoryModal(data.history || []);
+                this.historyModal.classList.remove('hidden');
+            } else {
+                throw new Error(data.error || data.message || 'Failed to load history');
+            }
+
+        } catch (error) {
+            console.error('History load failed:', error);
+            alert(`Failed to load history: ${error.message}`);
+        } finally {
+            this.historyBtn.disabled = false;
+            this.historyBtn.textContent = 'History';
+        }
+    }
+
+    renderHistoryModal(history) {
+        if (history.length === 0) {
+            this.historyList.innerHTML = `
+                <div class="history-empty">
+                    <p>No save history for this feed yet.</p>
+                    <p>Click "Save" to create your first save point.</p>
+                </div>
+            `;
+            return;
+        }
+
+        let html = `
+            <div class="history-header">
+                <p>Last ${history.length} saves for this feed:</p>
+            </div>
+            <div class="history-items">
+        `;
+
+        history.forEach((entry, index) => {
+            const date = new Date(entry.savedAt);
+            const isRecent = index === 0;
+
+            html += `
+                <div class="history-item ${isRecent ? 'current' : ''}">
+                    <div class="history-item-info">
+                        <span class="history-date">${date.toLocaleDateString()} ${date.toLocaleTimeString()}</span>
+                        <span class="history-by">${entry.savedBy || 'Unknown'}</span>
+                        <span class="history-count">${entry.count} exclusions</span>
+                    </div>
+                    ${isRecent ? '<span class="history-badge">Current</span>' : ''}
+                </div>
+            `;
+        });
+
+        html += '</div>';
+        this.historyList.innerHTML = html;
+    }
+
+    closeHistoryModal() {
+        this.historyModal.classList.add('hidden');
     }
 
     // Comparison functionality

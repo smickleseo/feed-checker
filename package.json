@@ -1,6 +1,6 @@
 {
   "name": "shopping-feed-viewer",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "description": "A web application for previewing and managing shopping feeds",
   "main": "server.js",
   "scripts": {

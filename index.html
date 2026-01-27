@@ -12,7 +12,7 @@
             <div class="header-top">
                 <h1>Shopping Feed Viewer</h1>
                 <div class="header-right">
-                    <div class="version-info">v2.4.0</div>
+                    <div class="version-info">v2.5.0</div>
                     <a href="/api/logout" class="logout-btn" title="Sign out">Logout</a>
                 </div>
             </div>
@@ -131,6 +131,11 @@
                     <button id="exportView" class="action-btn">Export View</button>
                 </div>
                 <div class="action-group">
+                    <button id="saveExclusions" class="action-btn save">Save</button>
+                    <button id="loadExclusions" class="action-btn">Load</button>
+                    <button id="historyExclusions" class="action-btn">History</button>
+                </div>
+                <div class="action-group">
                     <button id="exportExclusions" class="action-btn primary">Export Exclusions</button>
                     <button id="importExclusions" class="action-btn">Import</button>
                 </div>
@@ -212,6 +217,21 @@
                 <div class="modal-actions">
                     <button id="applyImport" class="modal-option-btn primary">Apply Exclusions</button>
                     <button onclick="feedViewer.closeImportModal()" class="modal-option-btn">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- History Modal -->
+    <div id="historyModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Exclusion History</h3>
+                <button class="modal-close" onclick="feedViewer.closeHistoryModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="historyList" class="history-list">
+                    <!-- History will be populated dynamically -->
                 </div>
             </div>
         </div>
