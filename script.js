@@ -412,9 +412,15 @@ class FeedViewer {
         // Detect if this is a Google feed (has google_product_category values)
         this.isGoogleFeed = this.googleCategories.size > 0;
 
-        // Highlight Google Category filter if this is a Google feed
+        // Show/hide Google Category filter based on feed type
         if (this.googleCategoryGroup) {
+            this.googleCategoryGroup.style.display = this.isGoogleFeed ? '' : 'none';
             this.googleCategoryGroup.classList.toggle('primary-filter', this.isGoogleFeed);
+        }
+
+        // Reset Google category filter when switching feeds
+        if (!this.isGoogleFeed && this.googleCategoryFilter) {
+            this.googleCategoryFilter.value = '';
         }
 
         // Update product type filter dropdown
