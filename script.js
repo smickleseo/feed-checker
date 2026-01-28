@@ -18,6 +18,7 @@ class FeedViewer {
         this.initializeElements();
         this.bindEvents();
         this.loadGoogleTaxonomy();
+        this.loadFeedPresets();
         // Don't load sample data automatically
     }
 
@@ -492,6 +493,50 @@ class FeedViewer {
             }
         } catch (error) {
             console.warn('Could not load Google taxonomy:', error);
+        }
+    }
+
+    async loadFeedPresets() {
+        try {
+            const response = await fetch('/api/feed-presets');
+            if (response.ok) {
+                const data = await response.json();
+                this.populateFeedPresets(data.presets || []);
+            }
+        } catch (error) {
+            console.warn('Could not load feed presets:', error);
+        }
+    }
+
+    populateFeedPresets(presets) {
+        // Clear existing options except the first placeholder
+        while (this.feedPresets.options.length > 1) {
+            this.feedPresets.remove(1);
+        }
+
+        // Group presets by client
+        const byClient = {};
+        for (const preset of presets) {
+            const client = preset.clientName || 'Other';
+            if (!byClient[client]) {
+                byClient[client] = [];
+            }
+            byClient[client].push(preset);
+        }
+
+        // Add optgroups for each client
+        for (const [clientName, feeds] of Object.entries(byClient)) {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = clientName;
+
+            for (const feed of feeds) {
+                const option = document.createElement('option');
+                option.value = feed.feedUrl;
+                option.textContent = feed.feedName;
+                optgroup.appendChild(option);
+            }
+
+            this.feedPresets.appendChild(optgroup);
         }
     }
 

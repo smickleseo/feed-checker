@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "seed-presets": "node scripts/seed-presets.js"
   },
   "dependencies": {
     "express": "^4.18.2",
