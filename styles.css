@@ -555,6 +555,34 @@ body {
     border-color: #667eea;
 }
 
+/* New Product Badge & Highlighting */
+.feed-item.new-product {
+    border: 2px solid #38a169;
+    position: relative;
+}
+
+.new-product-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: #38a169;
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 4px;
+    z-index: 2;
+    letter-spacing: 0.5px;
+}
+
+.stat-item.new-stat .stat-value {
+    color: #38a169;
+}
+
+.stat-item.new-stat .stat-label {
+    color: #38a169;
+}
+
 /* Missing/Removed Products Section */
 .missing-products-section {
     background: #fffaf0;

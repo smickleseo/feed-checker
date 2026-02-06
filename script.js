@@ -10,6 +10,7 @@ class FeedViewer {
         this.googleTaxonomy = null;
         this.hasSavedCurrentExclusions = false;
         this.missingExcludedItems = [];
+        this.newProductIds = new Set();
 
         // Pagination - render items in batches for performance
         this.displayLimit = 100;
@@ -62,6 +63,8 @@ class FeedViewer {
         this.feedContainer = document.getElementById('feedContainer');
         this.totalItemsSpan = document.getElementById('totalItems');
         this.excludedItemsSpan = document.getElementById('excludedItems');
+        this.newItemsSpan = document.getElementById('newItems');
+        this.newStat = document.getElementById('newStat');
 
         // Modal elements
         this.variantModal = document.getElementById('variantModal');
@@ -603,9 +606,11 @@ class FeedViewer {
                 item.googleProductCategory === selectedGoogleCategory;
 
             const isExcluded = this.excludedItems.has(item.id);
+            const isNew = this.newProductIds.has(item.id);
             const matchesExcluded = !excludedFilter ||
                 (excludedFilter === 'excluded' && isExcluded) ||
-                (excludedFilter === 'not-excluded' && !isExcluded);
+                (excludedFilter === 'not-excluded' && !isExcluded) ||
+                (excludedFilter === 'new' && isNew);
 
             // Status filter
             const itemAvailability = item.availability.toLowerCase().trim().replace(/\s+/g, '_');
@@ -776,17 +781,19 @@ class FeedViewer {
 
     createItemElement(item) {
         const isExcluded = this.excludedItems.has(item.id);
-        
+        const isNew = this.newProductIds.has(item.id);
+
         const itemDiv = document.createElement('div');
-        itemDiv.className = `feed-item ${isExcluded ? 'excluded' : ''}`;
+        itemDiv.className = `feed-item ${isExcluded ? 'excluded' : ''} ${isNew ? 'new-product' : ''}`;
         itemDiv.dataset.itemId = item.id;
 
         itemDiv.innerHTML = `
-            <img src="${item.imageLink || 'https://via.placeholder.com/350x200?text=No+Image'}" 
-                 alt="${item.title}" 
+            ${isNew ? '<span class="new-product-badge">NEW</span>' : ''}
+            <img src="${item.imageLink || 'https://via.placeholder.com/350x200?text=No+Image'}"
+                 alt="${item.title}"
                  class="item-image"
                  onerror="this.src='https://via.placeholder.com/350x200?text=Image+Not+Found'">
-            
+
             <div class="item-content">
                 <h3 class="item-title">${item.title}</h3>
                 <div class="item-price">${item.price}</div>
@@ -1033,10 +1040,18 @@ class FeedViewer {
         const total = this.feedData.length;
         const excluded = this.excludedItems.size;
         const visible = this.filteredData.length;
+        const newCount = this.newProductIds.size;
 
         this.totalItemsSpan.textContent = total;
         this.excludedItemsSpan.textContent = excluded;
         this.visibleItemsSpan.textContent = visible;
+
+        if (this.newItemsSpan) {
+            this.newItemsSpan.textContent = newCount;
+        }
+        if (this.newStat) {
+            this.newStat.classList.toggle('hidden', newCount === 0);
+        }
     }
 
     // Import functionality
@@ -2101,6 +2116,7 @@ Next Steps:
                         productType: item.productType,
                         googleProductCategory: item.googleProductCategory
                     })),
+                    allFeedIds: this.feedData.map(item => item.id),
                     savedBy: savedBy || 'Unknown'
                 })
             });
@@ -2109,6 +2125,7 @@ Next Steps:
 
             if (response.ok) {
                 this.hasSavedCurrentExclusions = true;
+                this.newProductIds.clear();
                 alert(`✓ Saved ${result.count} exclusions successfully!\n\nSaved at: ${new Date(result.savedAt).toLocaleString()}\n\nYou can now export your exclusions.`);
             } else {
                 throw new Error(result.error || result.message || 'Failed to save');
@@ -2164,13 +2181,31 @@ Next Steps:
                     data.excludedItems.filter(item => missingIds.includes(item.id)) :
                     missingIds.map(id => ({ id, title: 'Unknown' }));
 
-                if (confirm(`Load ${foundIds.length} exclusions?\n\n${missingIds.length > 0 ? `⚠️ ${missingIds.length} excluded items no longer in feed` : ''}\n\nSaved by: ${data.savedBy || 'Unknown'}\nSaved at: ${new Date(data.savedAt).toLocaleString()}`)) {
+                // Detect new products: in current feed but not in saved snapshot
+                const savedAllIds = new Set(data.allFeedIds || []);
+                const newProducts = savedAllIds.size > 0
+                    ? this.feedData.filter(item => !savedAllIds.has(item.id))
+                    : [];
+
+                let confirmMsg = `Load ${foundIds.length} exclusions?`;
+                if (newProducts.length > 0) {
+                    confirmMsg += `\n\n🆕 ${newProducts.length} new products added to feed since last save`;
+                }
+                if (missingIds.length > 0) {
+                    confirmMsg += `\n⚠️ ${missingIds.length} excluded items no longer in feed`;
+                }
+                confirmMsg += `\n\nSaved by: ${data.savedBy || 'Unknown'}\nSaved at: ${new Date(data.savedAt).toLocaleString()}`;
+
+                if (confirm(confirmMsg)) {
                     // Clear current and apply loaded
                     this.excludedItems.clear();
                     foundIds.forEach(id => this.excludedItems.add(id));
 
                     // Store missing items for display
                     this.missingExcludedItems = missingItems;
+
+                    // Store new product IDs for highlighting
+                    this.newProductIds = new Set(newProducts.map(item => item.id));
 
                     // Mark as saved since we just loaded from cloud
                     this.hasSavedCurrentExclusions = true;
@@ -2179,6 +2214,9 @@ Next Steps:
                     this.renderItems();
 
                     let message = `✓ Loaded ${foundIds.length} exclusions`;
+                    if (newProducts.length > 0) {
+                        message += `\n\n🆕 ${newProducts.length} new products added since last save - look for the "NEW" badges.`;
+                    }
                     if (missingItems.length > 0) {
                         message += `\n\n${missingItems.length} previously excluded items no longer in feed - see "Removed Products" section below.`;
                     }
@@ -2310,6 +2348,7 @@ Next Steps:
                         productType: item.productType,
                         googleProductCategory: item.googleProductCategory
                     })),
+                    allFeedIds: this.feedData.map(item => item.id),
                     savedBy
                 })
             });
@@ -2318,6 +2357,7 @@ Next Steps:
 
             if (response.ok) {
                 this.hasSavedCurrentExclusions = true;
+                this.newProductIds.clear();
                 this.closeSaveFirstModal();
 
                 // Now show the export modal

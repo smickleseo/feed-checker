@@ -95,7 +95,7 @@ export async function onRequestPost(context) {
 
     try {
         const body = await request.json();
-        const { feedUrl, excludedIds, excludedItems, savedBy } = body;
+        const { feedUrl, excludedIds, excludedItems, allFeedIds, savedBy } = body;
 
         if (!feedUrl || !excludedIds) {
             return new Response(JSON.stringify({ error: 'feedUrl and excludedIds required' }), {
@@ -112,6 +112,7 @@ export async function onRequestPost(context) {
             feedUrl,
             excludedIds,
             excludedItems: excludedItems || [],
+            allFeedIds: allFeedIds || [],
             savedAt: timestamp,
             savedBy: savedBy || 'Unknown',
             count: excludedIds.length
