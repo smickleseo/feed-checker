@@ -2183,13 +2183,25 @@ Next Steps:
 
                 // Detect new products: in current feed but not in saved snapshot
                 const savedAllIds = new Set(data.allFeedIds || []);
-                const newProducts = savedAllIds.size > 0
-                    ? this.feedData.filter(item => !savedAllIds.has(item.id))
-                    : [];
+                const savedExcludedIds = new Set(data.excludedIds || []);
+                let newProducts;
+
+                if (savedAllIds.size > 0) {
+                    // Full snapshot available: new = in current feed but not in snapshot
+                    newProducts = this.feedData.filter(item => !savedAllIds.has(item.id));
+                } else {
+                    // No snapshot (old save): flag everything NOT in the exclusion list
+                    // These are either original keepers or genuinely new products
+                    newProducts = this.feedData.filter(item => !savedExcludedIds.has(item.id));
+                }
 
                 let confirmMsg = `Load ${foundIds.length} exclusions?`;
                 if (newProducts.length > 0) {
-                    confirmMsg += `\n\n🆕 ${newProducts.length} new products added to feed since last save`;
+                    if (savedAllIds.size > 0) {
+                        confirmMsg += `\n\n🆕 ${newProducts.length} new products added to feed since last save`;
+                    } else {
+                        confirmMsg += `\n\n🔍 ${newProducts.length} products not in exclusion list — review for new additions`;
+                    }
                 }
                 if (missingIds.length > 0) {
                     confirmMsg += `\n⚠️ ${missingIds.length} excluded items no longer in feed`;
@@ -2215,7 +2227,11 @@ Next Steps:
 
                     let message = `✓ Loaded ${foundIds.length} exclusions`;
                     if (newProducts.length > 0) {
-                        message += `\n\n🆕 ${newProducts.length} new products added since last save - look for the "NEW" badges.`;
+                        if (savedAllIds.size > 0) {
+                            message += `\n\n🆕 ${newProducts.length} new products added since last save - look for the "NEW" badges.`;
+                        } else {
+                            message += `\n\n🔍 ${newProducts.length} products not in your exclusion list are flagged for review. Use the "New Products" filter to see them.`;
+                        }
                     }
                     if (missingItems.length > 0) {
                         message += `\n\n${missingItems.length} previously excluded items no longer in feed - see "Removed Products" section below.`;
